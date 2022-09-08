@@ -1,7 +1,7 @@
 #ifndef TTNS_LIBRARY_INCLUDE_HPP
 #define TTNS_LIBRARY_INCLUDE_HPP
 
-#include "utils/tmp_funcs.hpp"
+#include <tmp_funcs.hpp>
 #include "tree/ntree_factory.hpp"
 #include "tree/ntree_builder.hpp"
 #include "httensor.hpp"

@@ -3,7 +3,7 @@
 
 
 #include <memory>
-#include "../utils/zip.hpp"
+#include <zip.hpp>
 #include "../tdvp_core/root_to_leaf_decomposition.hpp"
 #include "../tdvp_core/decomposition_engine.hpp"
 #include "../tdvp_core/tdvp_tree_traversal.hpp"
@@ -42,6 +42,7 @@ public:
             CALL_AND_HANDLE(m_traversal.resize(A), "Failed to initialise the tree traversal object.");
 
             size_type max_size = 0;
+            using utils::zip;
             for(auto z : zip(m_r, A))
             {
                 size_type asize = use_capacity ? a().capacity() : a().size();

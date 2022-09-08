@@ -42,6 +42,7 @@ public:
 
     void resize(const httensor<T, B>& A, const sop_operator<T, B>& op, bool use_capacity = false)
     {
+        using utils::zip;   using utils::rzip;
         CALL_AND_RETHROW(clear());
         //allocate the indexing arrays that are used to determine which operator terms can be combined together.
         typename compress::tree_type spf_indices, mf_indices;
@@ -140,6 +141,7 @@ protected:
         //get all of the spf indices constructed for the case where the single particle functions are common.
         //In this case the r values associated with the mode below are always larger than the rvalues associated with this mode
         //There is no chance of an overlap of r values
+        using utils::zip;   using utils::rzip;
 
         size_type count = 0;
         std::vector<size_type> rtemp;   rtemp.reserve(op.nterms());
@@ -196,6 +198,7 @@ protected:
     
     static void initialise_common_mf_upwards(const op_info_node& mf, const sop_operator<T, B>& op, std::vector<size_type>& r_remaining, index_node& n, node_type& res)
     {
+        using utils::zip;   using utils::rzip;
         size_type count = 0;
         std::vector<size_type> rnot_added;  rnot_added.reserve(op.nterms());
         std::vector<size_type> rtemp;   rtemp.reserve(op.nterms());
@@ -309,6 +312,7 @@ protected:
 
     static void initialise_standard_upwards(const sop_operator<T, B>& op, std::vector<size_type>& r_remaining, index_node& n, node_type& res)
     {
+        using utils::zip;   using utils::rzip;
         size_type count = 0;
         size_type skip = res().ncommon_spf() + res().ncommon_mf();
         for(size_type r : r_remaining)
@@ -443,6 +447,7 @@ protected:
 protected:
     static void initialise_common_spf_downwards(const sop_operator<T, B>& op, index_node& n, node_type& res)
     {
+        using utils::zip;   using utils::rzip;
         size_type nterms = op.nterms();
         size_type cid = res.child_id();
         std::vector<size_type> rtemp;   rtemp.reserve(nterms);

@@ -3,8 +3,8 @@
 
 #define TIMING
 
-#include "../utils/timing_macro.hpp"
-#include "../utils/zip.hpp"
+#include <timing_macro.hpp>
+#include <zip.hpp>
 
 #include "../httensor.hpp"
 #include "../operators/sop_operator.hpp"
@@ -70,6 +70,7 @@ public:
     {
         try
         {   
+            using utils::zip;   using utils::rzip;
             bool use_capacity = true;
             ASSERT(A.is_orthogonalised(), "The input hierarchical tucker tensor must have been orthogonalised.");
 
@@ -254,8 +255,8 @@ public:
     }
 
     bool prepare_evolution(httensor<T, backend>& A, operator_type& op, operator_container<T, backend>& ham)
-    {
-        
+    { 
+        using utils::zip;   using utils::rzip;
         //first iterate through the tree computing the single particle Hamiltonians.  Here we do not attempt to do any bond dimension adaptation
         //as as we are not time-evolving all information about the optimal unoccupied SHFs will be destroyed before it could be used.
         for(auto z : rzip(A, ham.op()))

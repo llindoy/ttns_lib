@@ -3,7 +3,7 @@
 
 
 #include <memory>
-#include "../utils/zip.hpp"
+#include <zip.hpp>
 #include "../tdvp_core/decomposition_engine.hpp"
 #include "../tdvp_core/leaf_to_root_decomposition.hpp"
 
@@ -33,7 +33,7 @@ public:
         try
         {
             CALL_AND_HANDLE(m_r.construct_topology(A), "Failed to construct the topology of the r tensor.");
-            
+            using utils::zip;
             size_type max_size = 0;
             for(auto z : zip(m_r, A))
             {
@@ -84,6 +84,7 @@ public:
     {
         try
         {
+            using utils::rzip;
             //check whether A is already orthogonalised.  If it is we don't need to do anything.
             if(!A.is_orthogonalised())
             {

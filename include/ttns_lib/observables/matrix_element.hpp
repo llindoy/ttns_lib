@@ -92,6 +92,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             size_type maxsize = get_maximum_size(A);
 
             if(use_capacity)
@@ -123,6 +124,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             ASSERT(has_same_structure(A, B), "The input hierarchical tucker tensors do not have the same topology.");
 
             size_type maxsize = get_maximum_size(B);
@@ -153,6 +155,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             ASSERT(has_same_structure(psi, m_matel), "The input hiearchical tucker tensor does not have the same topology as the matrix_element object.");
             for(auto z : rzip(psi, m_matel, m_is_identity))
             {
@@ -187,6 +190,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             ASSERT(has_same_structure(psi, m_matel), "The input hiearchical tucker tensor does not have the same topology as the matrix_element object.");
             for(auto z : rzip(psi, m_matel, m_is_identity))
             {
@@ -221,6 +225,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             ASSERT(has_same_structure(bra, m_matel) && has_same_structure(ket, m_matel), "The input hiearchical tucker tensors do not both have the same topology as the matrix_element object.");
             if(&bra == &ket){CALL_AND_RETHROW(return operator()(bra));}
 
@@ -261,6 +266,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             ASSERT(has_same_structure(psi, m_matel), "The input hiearchical tucker tensor does not have the same topology as the matrix_element object.");
             ASSERT(mode < psi.nmodes(), "The mode that the input operator acts on is out of bounds.");
 
@@ -313,6 +319,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             ASSERT(has_same_structure(psi, m_matel), "The input hiearchical tucker tensor does not have the same topology as the matrix_element object.");
             ASSERT(op.nmodes() == psi.nmodes(), "The input product operator does not act on the correct number of modes.");
             for(auto z : rzip(psi, m_matel, m_is_identity, m_opA, m_temp))
@@ -382,6 +389,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             if(&bra == &ket){CALL_AND_RETHROW(return operator()(op, mode, bra));}
 
             ASSERT(has_same_structure(bra, m_matel) && has_same_structure(ket, m_matel), "The two input hiearchical tucker tensor do not both have the same topology as the matrix_element object.");
@@ -434,6 +442,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             if(&bra == &ket){CALL_AND_RETHROW(return operator()(op, bra));}
             ASSERT(has_same_structure(bra, m_matel) && has_same_structure(ket, m_matel), "The two input hiearchical tucker tensor do not both have the same topology as the matrix_element object.");
             ASSERT(op.nmodes() == bra.nmodes(), "The input product operator does not act on the correct number of modes.");

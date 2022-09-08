@@ -3,7 +3,7 @@
 
 #include <type_traits>
 #include "ntree.hpp"
-#include <linalg/utils/exception_handling.hpp>
+#include <exception_handling.hpp>
 
 namespace ttns
 {

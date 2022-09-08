@@ -2,7 +2,7 @@
 #define HTUCKER_TENSOR_HPP
 
 #include "ttn_nodes/httensor_node.hpp"
-#include "utils/tmp_funcs.hpp"
+#include <tmp_funcs.hpp>
 
 namespace ttns
 {

@@ -1,10 +1,10 @@
 #ifndef HTUCKER_TREE_NODE_HPP
 #define HTUCKER_TREE_NODE_HPP
 
-#include <linalg/utils/exception_handling.hpp>
+#include <exception_handling.hpp>
 #include "tree_forward_decl.hpp"
 #include "node_data_traits.hpp"
-#include "../utils/tmp_funcs.hpp"
+#include <tmp_funcs.hpp>
 #include "../utils/serialisation.hpp"
 
 #include <algorithm>

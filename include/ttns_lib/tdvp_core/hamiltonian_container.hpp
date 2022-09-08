@@ -2,7 +2,6 @@
 #define TTNS_HAMILTONIAN_CONTAINER_HPP
 
 #include "../ttn_nodes/operator_node.hpp"
-//#include "../ttn_nodes/hamiltonian_node.hpp"
 
 #include <vector>
 #include <list>
@@ -115,6 +114,7 @@ public:
             //now we resize all of the objects necessary to compute the Hamiltonian operators at each node
             CALL_AND_HANDLE(m_spo.construct_topology(A), "Failed to construct the topology of the operator node tree.");
             CALL_AND_HANDLE(m_mfo.construct_topology(A), "Failed to construct the topology of the operator node tree.");
+            using utils::zip;   using utils::rzip;
 
             index_array_type inds;  CALL_AND_HANDLE(inds.resize(op.nterms()), "Failed to resize the temporary inds array.");
             for(auto z : rzip(A, m_spo))
@@ -175,6 +175,7 @@ public:
         if(!has_same_structure(A, m_spo)){return false;}
         else
         {
+            using utils::zip;   using utils::rzip;
             index_array_type inds;  CALL_AND_HANDLE(inds.resize(op.nterms()), "Failed to resize the temporary inds array.");
             for(auto z : rzip(A, m_spo))
             {

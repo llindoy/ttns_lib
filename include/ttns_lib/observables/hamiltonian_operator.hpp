@@ -53,6 +53,7 @@ public:
             CALL_AND_HANDLE(m_mfo.construct_topology(A), "Failed to construct the topology of the operator node tree.");
             CALL_AND_HANDLE(m_sum.construct_topology(A), "Failed to construct the topology of the operator node tree.");
             CALL_AND_HANDLE(m_is_id.construct_topology(A), "Failed to construct the topology of the bool node tree.");
+            using utils::zip;   using utils::rzip;
 
             for(auto z : rzip(A, m_sum))
             {
@@ -91,6 +92,7 @@ public:
                 s().fill_zeros();
             }
 
+            using utils::zip;   using utils::rzip;
             for(size_type r=0; r<h.nterms(); ++r)
             {
                 for(auto z : rzip(psi, m_spo, m_is_id, m_opA, m_temp))

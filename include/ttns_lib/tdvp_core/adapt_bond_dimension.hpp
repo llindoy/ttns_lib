@@ -2,7 +2,7 @@
 #define HTUCKER_ADAPT_BOND_DIMENSION_HPP
 
 #include <memory>
-#include "../utils/zip.hpp"
+#include <zip.hpp>
 #include "../httensor.hpp"
 #include "../operators/sop_operator.hpp"
 #include "../ttn_nodes/operator_node.hpp"
@@ -13,6 +13,7 @@
 #include "projector_splitting_evolution_functions.hpp"
 #include "operator_container.hpp"
 
+/*
 namespace ttns
 {
 
@@ -144,5 +145,5 @@ protected:
 };
 
 }   //namespace ttns
-
+*/
 #endif //HTUCKER_ADAPT_BOND_DIMENSION_HPP//

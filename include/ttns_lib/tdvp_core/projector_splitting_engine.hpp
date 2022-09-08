@@ -1,11 +1,11 @@
 #ifndef HTUCKER_PROJECTOR_SPLITTING_ENGINE_HPP
 #define HTUCKER_PROJECTOR_SPLITTING_ENGINE_HPP
 
+
+#include <omp.hpp>
+#include <krylov_integrator.hpp>
+
 #include "tdvp_algorithm_engine.hpp"
-
-#include <linalg/utils/omp.hpp>
-
-#include "krylov_integrator.hpp"
 #include "projector_splitting_evolution_functions.hpp"
 
 namespace ttns
@@ -27,7 +27,7 @@ protected:
     using size_type = typename base_type::size_type;
     using real_type = typename base_type::real_type;
 
-    using integ_type = krylov_integrator<T, backend>;
+    using integ_type = utils::krylov_integrator<T, backend>;
 
     using hnode = typename base_type::hnode;
     using opnode = typename base_type::opnode;

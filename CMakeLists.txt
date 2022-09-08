@@ -1,6 +1,14 @@
 cmake_minimum_required (VERSION 3.0)
 project(ttns_lib LANGUAGES CXX)
 
+option(JUST_INSTALL_TTNS_LIB "Don't do anything besides installing the Library" On)
+
+add_library(ttns_lib INTERFACE)
+target_include_directories(ttns_lib INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
 unset(COMPILER_SET CACHE)
 unset(LIBS CACHE)
 
@@ -28,20 +36,9 @@ add_subdirectory(utils)
 
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 
-option(USE_CUDA "Compile with cuda" OFF)
-option(USE_OPENMP "Compile with openmp" ON)
-option(USE_GEMM3M "Compile with openmp" OFF)
-if(USE_GEMM3M)
-    add_compile_definitions(USE_GEMM3M)
-endif()
-option(JUST_INSTALL_TTNS_LIB "Don't do anything besides installing the Library" On)
+if(NOT JUST_INSTALL_TTNS_LIB)
 
-add_library(ttns_lib INTERFACE)
-target_include_directories(ttns_lib INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
-)
+add_subdirectory(src)
  
-if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 endif()
 

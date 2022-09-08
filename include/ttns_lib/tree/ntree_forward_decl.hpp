@@ -13,8 +13,8 @@
 #ifndef HTUCKER_DATASTRUCTURES_TREE_FORWARD_DECL_HPP
 #define HTUCKER_DATASTRUCTURES_TREE_FORWARD_DECL_HPP
 
-#include <linalg/utils/exception_handling.hpp>
-#include "../utils/tmp_funcs.hpp"
+#include <exception_handling.hpp>
+#include <tmp_funcs.hpp>
 
 namespace ttns
 {

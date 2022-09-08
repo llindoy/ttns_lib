@@ -39,6 +39,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             CALL_AND_HANDLE(m_opA.resize(A), "Failed to resize the opa matrix tree.");
             CALL_AND_HANDLE(m_temp.resize(A), "Failed to resize the temporary matrix tree.");
             CALL_AND_HANDLE(m_hspf.construct_topology(A), "Failed to construct the topology of the operator node tree.");
@@ -60,6 +61,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             ASSERT(has_same_structure(psi, m_hspf), "The input hiearchical tucker tensor does not have the same topology as the single_particle_operator object.");
             for(auto z : rzip(psi, m_hspf, m_opA, m_temp))
             {

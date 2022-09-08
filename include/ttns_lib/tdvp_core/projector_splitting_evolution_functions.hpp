@@ -1,10 +1,6 @@
 #ifndef HTUCKER_PROJECTOR_SPLITTING_EVOLUTION_FUNCTIONS_HPP
 #define HTUCKER_PROJECTOR_SPLITTING_EVOLUTION_FUNCTIONS_HPP
 
-#ifndef TIMING
-#define TIMING
-#endif
-
 namespace ttns
 {
 template <typename T, typename backend>

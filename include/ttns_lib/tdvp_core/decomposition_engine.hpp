@@ -24,6 +24,7 @@ public:
     {
         try
         {
+            using utils::zip;   using utils::rzip;
             CALL_AND_HANDLE(resize_buffers<decomp_type>(A, use_capacity), "Failed to resize the buffers.");
 
             size_type max_ws = 0;

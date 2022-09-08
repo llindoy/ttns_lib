@@ -221,7 +221,7 @@ protected:
             
             auto A2tens = A2().as_rank_3(mode);
             size_type max_dimension = A2tens.shape(0)*A2tens.shape(2);
-            size_type curr_dim = A2().dim(mode);
+            //size_type curr_dim = A2().dim(mode);
 
             //if the matricisation of the tensor we are currently trying to expand is square then we don't even attempt to expand
             if(A2tens.shape(1) >= max_dimension){return false;}
@@ -374,7 +374,7 @@ protected:
             //determine if we should attempt subspace expansion.
             
             size_type max_dimension = A1().shape(0);
-            size_type curr_dim = A1().hrank();
+            //size_type curr_dim = A1().hrank();
 
             auto A2tens = A2().as_rank_3(mode);
             //if the matricisation of the tensor we are currently trying to expand is square then we don't even attempt to expand

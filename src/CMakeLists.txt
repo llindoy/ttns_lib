@@ -1,11 +1,11 @@
 cmake_minimum_required (VERSION 3.0)
-project(spin_boson LANGUAGES CXX)
+project(mlmctdh LANGUAGES CXX)
 
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/ ${CMAKE_MODULE_PATH})
 
 option(USE_CUDA "Compile with cuda" OFF)
-option(USE_OPENMP "Compile with openmp" ON)
+option(USE_OPENMP "Compile with openmp" OFF)
 option(USE_GEMM3M "Compile with openmp" OFF)
 
 if(USE_OPENMP)
@@ -80,7 +80,7 @@ else()
     endif()
     set(COMPILER_SET TRUE INTERNAL BOOL "")
 endif()
-add_executable(spin_boson.x spin_boson.cpp)
+add_executable(mlmctdh.x spin_boson.cpp)
 
 include(FetchContent)
 #now make sure we have the rapidjson library 
@@ -173,9 +173,12 @@ if(USE_DEFAULT_FIND_BLAS)
     set(LINALG_LIBS ${LINALG_LIBS} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
 endif()
 
-target_include_directories(spin_boson.x PRIVATE ${EOS_INCLUDE_DIRECTORIES})
-target_include_directories(spin_boson.x PRIVATE ${LINALG_INCLUDE_DIRECTORIES})
-target_include_directories(spin_boson.x PRIVATE ${UTILS_INCLUDE_DIRECTORIES})
-target_include_directories(spin_boson.x PRIVATE ${TTNS_INCLUDE_DIRECTORIES})
-target_link_libraries(spin_boson.x linalg ttns_lib ${LINALG_LIBS} ${LIBS}) 
+target_include_directories(mlmctdh.x PRIVATE ${EOS_INCLUDE_DIRECTORIES})
+target_include_directories(mlmctdh.x PRIVATE ${LINALG_INCLUDE_DIRECTORIES})
+target_include_directories(mlmctdh.x PRIVATE ${UTILS_INCLUDE_DIRECTORIES})
+target_include_directories(mlmctdh.x PRIVATE ${TTNS_INCLUDE_DIRECTORIES})
+target_link_libraries(mlmctdh.x linalg ttns_lib ${LINALG_LIBS} ${LIBS}) 
 
+
+install(TARGETS mlmctdh.x
+        DESTINATION ${CMAKE_SOURCE_DIR}/bin)

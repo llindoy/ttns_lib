@@ -142,9 +142,9 @@ public:
         for(size_t i=0; i < N; ++i)
         {
             real_type wi = std::abs(m_wk[i]);
-            size_t j;
-            for(j=0; j<=static_cast<size_t>(std::ceil(ecut/wi)); ++j){}
-            m_max_states[i] = j;
+            //for(j=0; j<=static_cast<size_t>(std::ceil(ecut/wi)); ++j){}
+            size_t nper = nmax < static_cast<size_t>(ecut/wi) ? nmax : static_cast<size_t>(ecut/wi);
+            m_max_states[i] = nper;
         }
 
         if(N > 1)
@@ -511,7 +511,6 @@ public:
             std::normal_distribution<T> dist(0, sigma);
 
             alpha[i] = complex_type(dist(rng), dist(rng));
-            std::cerr << alpha[i] << std::endl;
         }
 
 
@@ -530,15 +529,263 @@ public:
         complex_type dot_prod = linalg::dot_product(linalg::conj(hpsi0), hpsi0);
         
         hpsi0/=std::sqrt(std::real(dot_prod));
-        std::cerr << hpsi0 << std::endl;
         psi0 = hpsi0;
     }
 
 protected:
+    //this is still not stable enough
+    template <typename backend>
+    void form_transformation_matrix_exact(std::vector<linalg::matrix<complex_type, backend> >& Hm, double alpha_factor = 1.0)
+    {
+        size_t nstates = m_nk.shape(0);     size_t N = m_nk.shape(1);
+        std::vector<linalg::matrix<complex_type> > Dk(N);
+        Hm.resize(N);
+
+        for(size_t mode=0; mode < N; ++mode)
+        {
+            real_type ck = m_gk[mode]*std::sqrt(2.0);
+            //bool negative_ck = m_gk[mode]*m_wk[mode] < 0;
+            complex_type alpha = sqrt(alpha_factor)*ck/(m_wk[mode]);
+            complex_type nalpha_conj = -conj(alpha);
+            real_type abs_alpha = abs(alpha);
+            real_type a2 = abs_alpha*abs_alpha;
+            real_type expa2 = exp(-a2/2.0);
+
+            size_t ni = (N == 1 ? nstates : m_max_states[mode]);
+            if(ni < 2){ni = 2;}
+
+            Dk[mode].resize(ni, ni);
+
+            //compute the displacement matrix using the recursion relations for the elements:
+            //  \bra{0}D(\alpha)\ket{0} = exp(-|\alpha|^2/2)
+            //  \bra{1}D(\alpha)\ket{1} = exp(-|\alpha|^2/2)(1-|\alpha|^2)
+            //  \bra{n}D(\alpha)\ket{n} = \frac{2n-1-|\alpha|^2}{n} \bra{n-1}D(\alpha)\ket{n-1} - \frac{n-1}{n}\bra{n-2}D(\alpha)\ket{n-2}
+            //  \bra{n}D(\alpha)\ket{1} = f_n*(n-|\alpha|^2) where
+            //      f_1 = exp(-|\alpha|^2/2)
+            //      f_n = f_{n-1}*\frac{\alpha}{n}
+            //  \bra{n}D(\alpha)\ket{m} = \frac{m+n-1-|\alpha|^2}{\sqrt{mn}} \bra{n-1}D(\alpha)\ket{n-1} - \sqrt{\frac{(n-1)(m-1)}{mn}} \bra{n-2}D(\alpha)\ket{m-2} n > m
+            //  and that \bra{m}D(\alpha)\ket{n} = \bra{n}D(-\alpha)\ket{m}^*
+            //first populate the second row and column
+            Dk[mode](0, 0) = expa2;
+
+            Dk[mode](1, 1) = expa2;
+            for(size_t n=2; n < ni; ++n)
+            {
+                Dk[mode](n, 1) = alpha*Dk[mode](n-1, 1)/sqrt(static_cast<real_type>(n));
+            }
+            for(size_t m=2; m < ni; ++m)
+            {
+                Dk[mode](1, m) = nalpha_conj*Dk[mode](1, m-1)/sqrt(static_cast<real_type>(m));
+            }
+
+            Dk[mode](1, 1) = expa2*(1.0-a2);
+            for(size_t n=2; n<ni; ++n){Dk[mode](n, 1) *= (n-a2);}
+            for(size_t m=2; m<ni; ++m){Dk[mode](1, m) *= (m-a2);}
+
+            //Now we populate the diagonals
+            Dk[mode](0, 0) = expa2; Dk[mode](1,1) = expa2*(1-a2);
+            for(size_t i=2; i < ni; ++i)
+            {
+                Dk[mode](i, i) = ((2.0*i-1.0-a2) * Dk[mode](i-1, i-1) - (i-1.0)*Dk[mode](i-2, i-2))/static_cast<real_type>(i);
+            }
+            
+            //now populate the first column (all values with m=0)
+            for(size_t n=1; n < ni; ++n)
+            {
+                Dk[mode](n, 0) = alpha/sqrt(static_cast<real_type>(n))*Dk[mode](n-1, 0);
+            }
+
+            //and first row (all values with n=0)
+            for(size_t m=1; m < ni; ++m)
+            {
+                Dk[mode](0, m) = nalpha_conj/sqrt(static_cast<real_type>(m))*Dk[mode](0, m-1);
+            }
+
+            //now we can compute all values with n > m
+            for(size_t d=1; d<ni; ++d)
+            {
+                for(size_t n=d+2; n < ni; ++n)
+                {   
+                    size_t m= n-d;
+                    Dk[mode](n, m) = (m+n-1.0-a2)/sqrt(static_cast<real_type>(m*n))*Dk[mode](n-1, m-1) - sqrt((m-1.0)*(n-1.0)/(m*n))*Dk[mode](n-2, m-2);
+                }
+            }
+            for(size_t d=1; d<ni; ++d)
+            {
+                for(size_t m=d+2; m < ni; ++m)
+                {   
+                    size_t n = m-d;
+                    Dk[mode](n, m) = (m+n-1.0-a2)/sqrt(static_cast<real_type>(m*n))*Dk[mode](n-1, m-1) - sqrt((m-1.0)*(n-1.0)/(m*n))*Dk[mode](n-2, m-2);
+                }
+            }
+            //if(negative_ck)
+            //{
+            //    linalg::matrix<complex_type> temp = linalg::adjoint(Dk[mode]);
+            //    Hm[mode] = temp;
+            //}
+            //else
+            //{
+                Hm[mode] = Dk[mode];
+            //}
+        }
+    }
+
+    //this is still not stable enough
+    template <typename backend>
+    void form_transformation_matrix_exact_full(linalg::matrix<complex_type, backend>& Hm, double alpha_factor = 1.0)
+    {
+        size_t nstates = m_nk.shape(0);     size_t N = m_nk.shape(1);
+        std::vector<linalg::matrix<complex_type> > Dk(N);
+        linalg::matrix<complex_type> h(nstates, nstates);   h.fill_zeros();
+
+
+        for(size_t mode=0; mode < N; ++mode)
+        {
+            real_type ck = m_gk[mode]*std::sqrt(2.0);
+            //bool negative_ck = m_gk[mode]*m_wk[mode] < 0;
+            complex_type alpha = sqrt(alpha_factor)*ck/(m_wk[mode]);
+            complex_type nalpha_conj = -conj(alpha);
+            real_type abs_alpha = abs(alpha);
+            real_type a2 = abs_alpha*abs_alpha;
+            real_type expa2 = exp(-a2/2.0);
+
+            size_t ni = (N == 1 ? nstates : m_max_states[mode]);
+            if(ni < 2){ni = 2;}
+
+            Dk[mode].resize(ni, ni);
+
+            //compute the displacement matrix using the recursion relations for the elements:
+            //  \bra{0}D(\alpha)\ket{0} = exp(-|\alpha|^2/2)
+            //  \bra{1}D(\alpha)\ket{1} = exp(-|\alpha|^2/2)(1-|\alpha|^2)
+            //  \bra{n}D(\alpha)\ket{n} = \frac{2n-1-|\alpha|^2}{n} \bra{n-1}D(\alpha)\ket{n-1} - \frac{n-1}{n}\bra{n-2}D(\alpha)\ket{n-2}
+            //  \bra{n}D(\alpha)\ket{1} = f_n*(n-|\alpha|^2) where
+            //      f_1 = exp(-|\alpha|^2/2)
+            //      f_n = f_{n-1}*\frac{\alpha}{n}
+            //  \bra{n}D(\alpha)\ket{m} = \frac{m+n-1-|\alpha|^2}{\sqrt{mn}} \bra{n-1}D(\alpha)\ket{n-1} - \sqrt{\frac{(n-1)(m-1)}{mn}} \bra{n-2}D(\alpha)\ket{m-2} n > m
+            //  and that \bra{m}D(\alpha)\ket{n} = \bra{n}D(-\alpha)\ket{m}^*
+            //first populate the second row and column
+            Dk[mode](0, 0) = expa2;
+            Dk[mode](1, 1) = expa2;
+            for(size_t n=2; n < ni; ++n)
+            {
+                Dk[mode](n, 1) = alpha*Dk[mode](n-1, 1)/sqrt(static_cast<real_type>(n));
+            }
+            for(size_t m=2; m < ni; ++m)
+            {
+                Dk[mode](1, m) = nalpha_conj*Dk[mode](1, m-1)/sqrt(static_cast<real_type>(m));
+            }
+
+            Dk[mode](1, 1) = expa2*(1.0-a2);
+            for(size_t n=2; n<ni; ++n){Dk[mode](n, 1) *= (n-a2);}
+            for(size_t m=2; m<ni; ++m){Dk[mode](1, m) *= (m-a2);}
+
+            //Now we populate the diagonals
+            Dk[mode](0, 0) = expa2; Dk[mode](1,1) = expa2*(1-a2);
+            for(size_t i=2; i < ni; ++i)
+            {
+                Dk[mode](i, i) = ((2.0*i-1.0-a2) * Dk[mode](i-1, i-1) - (i-1.0)*Dk[mode](i-2, i-2))/static_cast<real_type>(i);
+            }
+            
+            //now populate the first column (all values with m=0)
+            for(size_t n=1; n < ni; ++n)
+            {
+                Dk[mode](n, 0) = alpha/sqrt(static_cast<real_type>(n))*Dk[mode](n-1, 0);
+            }
+
+            //and first row (all values with n=0)
+            for(size_t m=1; m < ni; ++m)
+            {
+                Dk[mode](0, m) = nalpha_conj/sqrt(static_cast<real_type>(m))*Dk[mode](0, m-1);
+            }
+
+            //now we can compute all values with n > m
+            for(size_t d=1; d<ni; ++d)
+            {
+                for(size_t n=d+2; n < ni; ++n)
+                {   
+                    size_t m= n-d;
+                    Dk[mode](n, m) = (m+n-1.0-a2)/sqrt(static_cast<real_type>(m*n))*Dk[mode](n-1, m-1) - sqrt((m-1.0)*(n-1.0)/(m*n))*Dk[mode](n-2, m-2);
+                }
+            }
+            for(size_t d=1; d<ni; ++d)
+            {
+                for(size_t m=d+2; m < ni; ++m)
+                {   
+                    size_t n = m-d;
+                    Dk[mode](n, m) = (m+n-1.0-a2)/sqrt(static_cast<real_type>(m*n))*Dk[mode](n-1, m-1) - sqrt((m-1.0)*(n-1.0)/(m*n))*Dk[mode](n-2, m-2);
+                }
+            }
+
+            //if(negative_ck)
+            //{
+            //    linalg::matrix<complex_type> temp = linalg::adjoint(Dk[mode]);
+            //    Dk[mode] = temp;
+            //}
+
+        }
+        for(size_t i=0; i<nstates; ++i)
+        {
+            for(size_t j=0; j<nstates; ++j)
+            {
+                h(i, j) = 1.0;
+                for(size_t mode=0; mode < N; ++mode)
+                {
+                    h(i, j) *= Dk[mode](m_nk(i, mode), m_nk(j, mode));
+                }
+            }
+        }
+        Hm = h;
+    }
+
+public:
+    template <typename backend>
+    void psi0_polaron_exact(linalg::vector<complex_type, backend>& psi0)
+    {
+        ASSERT(m_w_set && m_ind_set && m_c_set, "Failed to construct Hc.  Not all of the topology, frequency and coupling arrays have been set.");
+        size_t nstates = m_nk.shape(0);
+        psi0.resize(nstates);   psi0.fill_zeros();
+
+        linalg::matrix<complex_type, backend> temp(nstates, nstates);
+        form_transformation_matrix_exact_full(temp, 0.5);
+
+        linalg::matrix<complex_type> htemp2 = temp;
+        linalg::vector<complex_type> hpsi0(nstates);
+
+        for(size_t i=0; i<nstates; ++i)
+        {
+            hpsi0(i) = htemp2(i, 0);
+        }
+        psi0 = hpsi0/sqrt(dot_product(conj(hpsi0), hpsi0));
+    }
+
+    template <typename backend>
+    void psi_polaron_exact(linalg::matrix<complex_type, backend>& ct)
+    {
+        ASSERT(m_w_set && m_ind_set && m_c_set, "Failed to construct Hc.  Not all of the topology, frequency and coupling arrays have been set.");
+
+        size_t nstates = m_nk.shape(0);
+        ASSERT(ct.shape(0) < nstates, "Failed to construct psi_polaron");
+        ct.resize(ct.shape(0), nstates);   ct.fill_zeros();
+
+        linalg::matrix<complex_type, backend> temp(nstates, nstates);
+        form_transformation_matrix_exact_full(temp, 0.5);
+
+        linalg::matrix<complex_type> htemp2 = temp;
+        linalg::matrix<complex_type> hct(ct.shape(0), ct.shape(1));
+
+        for(size_t i=0; i<ct.shape(0); ++i)
+        {
+            for(size_t j=0; j< nstates; ++j)
+            {
+                hct(i, j) = htemp2(j, i);
+            }
+        }
+        ct = hct;
+    }
+protected:
     size_t get_nstates_in_cut(size_t mode_ind, T ecut, size_t nmax)
     {
         T wi = std::abs(m_wk[mode_ind]);
-        std::cerr << wi << std::endl;
         size_t nper = nmax < static_cast<size_t>(ecut/wi) ? nmax : static_cast<size_t>(ecut/wi);
         size_t res = 1;
         for(size_t i=0; i < m_max_states.size(); ++i){m_max_states[i] = nper;   res*=nper;}
@@ -549,11 +796,11 @@ protected:
 
     size_t populate_state_vector(linalg::matrix<size_t>& nk, linalg::vector<size_t>& nt, size_t curr_ind, size_t mode_ind, T ecut, size_t nmax)
     {
-        T wi = std::abs(m_wk[mode_ind]);
-        std::cerr << wi << std::endl;
-        size_t nper = m_max_states[0];
         if(mode_ind < m_wk.size())
         {
+            //T wi = std::abs(m_wk[mode_ind]);
+
+            size_t nper = m_max_states[mode_ind];
             for(size_t i=0; i<nper; ++i)
             {   
                 nt[mode_ind] = i;
@@ -577,7 +824,6 @@ bool partition_modes(const std::vector<T>& wk, T ecut, T wc, std::vector<size_t>
 
     for(size_t i = 0; i+1 < N; ++i)
     {
-        //std::cerr << wk[i] << " " << wk[i+1] << std::endl;
         ASSERT(std::abs(wk[i+1]) >= std::abs(wk[i]), "Failed to partition modes.  The frequency array must be sorted from smallest to largest.");
     }
 
@@ -631,7 +877,6 @@ bool partition_modes(const std::vector<T>& wk, T ecut, T wc, std::vector<size_t>
         mode_combination.set_wk(wk.begin()+count, wk.begin()+count + ntoadd); 
         count += partitions.back();
         nt = mode_combination.compute_nstates(ecut, nmaxt);
-        //std::cerr << npartitions << " " << ntoadd << " " << nt << std::endl;
         ++npartitions;
     }
     

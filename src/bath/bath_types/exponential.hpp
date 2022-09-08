@@ -112,7 +112,6 @@ public:
         {
             real_type itol = 1.0-tol;
             real_type lambda = std::tgamma(m_s)*m_alpha*m_wc/2.0;
-            real_type freq; 
             CALL_AND_RETHROW(bounds[1] = discretisation_utilities<real_type>::find_maximum_frequency(integ, lambda*M_PI, m_wc*std::log(1.0/tol), [this](real_type w){return this->density_of_frequencies(w);}, itol));
         }
         else

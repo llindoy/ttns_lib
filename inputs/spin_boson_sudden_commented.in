@@ -1,0 +1,93 @@
+{
+    "comment: " : "Required: The system Hamiltonian.  A dense matrix representation of the system Hamiltonian.  This can take real and complex valued elements, with complex valued elements being inserted as a string of the form a+bj.", 
+    "Hsys" : [[0,  1], [1, 0]], 
+
+    "comment: " : "Required: A dense matrix storing the system contribution to the system-bath coupling Hamiltonian.", 
+    "Scoup" : [[1, 0], [0, -1]],
+
+
+    "comment: " : "Required: The bath parameters",
+    "bath" : 
+    {
+        "comment: " : "Required the type of spectral density to use.  To see all options run the code without any input file - I haven't properly implemented command line arguments for this version.  Currently we are using a Heaviside function cutoff.",
+        "type" : "sudden",
+
+        "comment: " : "The bath cutoff frequency.",
+        "wc" : 25.0,
+
+        "comment: " : "The bath Kondo parameter - the definition may be weird for baths non-ohmic baths with non-exponential cutoffs.  Currently I have set it to the zero frequency component of the friction kernel.",
+        "alpha" : 2.0,
+
+        "comment: " : "The low frequency expansion exponent.  0 <= s < 1 => sub-ohmic.  s = 1 => ohmic.  1 < s => super-ohmic
+        "s" : 1
+    },
+
+    "comment:" : "Required: A tolerance parameter used for deciding a hard cutoff when discretising a bath with a soft cutoff.  This will ensure that we include all frequencies such that int_0^w_max J(w)/w dw / int_0^inft J(w)/w dw = 1 - bath integration error tolerance.  For 1/f noise baths (s=0), these integrals are divergent and we instead use the integral of the spectral density.",
+    "bath integration error tolerance" : 1e-3,
+
+    "comment:" : "Required: The total integration time.",
+    "tmax" : 10.0,
+
+    "comment:" : "Required: The integration time step.",
+    "dt" : 1e-3,
+
+    "comment: " : "Required: The number of single particle functions (bond-dimension) used at the top level of the balanced binary tree tensor network used for representing the bath.", 
+    "nspf" : 4,
+
+    "comment: " : "Required: The number of single particle functions (bond-dimension) used for the leaf nodes of the tree.  For intermediate nodes of the tree the bond dimension linearly interpolates between these two values with depth.",
+    "nspf lower" : 4,
+
+    "comment: " : "Optional (default = nspf): The maximum number of single particle functions (bond-dimension) allowed for the top level of the bath tree. Set to the same value as nspf to turn off adaptive bond dimensions.", 
+    "nspf capacity" : 64,
+
+
+    "comment: " : "Optional (default = nspf lower): The maximum number of single particle functions (bond-dimension) allowed for the leaf nodes of the tree. Set to the same value as nspf lower to turn off adaptive bond dimensions.", 
+    "nspf lower capacity" : 16,
+
+    "comment: " : "Required: The number of modes used to discretise the bath - too small a value will manifest as large oscillations at long time", 
+    "nmodes" : 512,
+
+    "comment: " : "Required: The maximum local hilbert space dimension - at zero temperature 30 is typically sufficient but feel free to play around with convergence.  At higher temperatures more can be required - this version of the code does not attempt to automate this", 
+    "maximum dimension" : 30,
+
+    "comment: " : "optional (default = maximum dimension): The maximum local hilbert space dimension for high frequency modes (with a cutoff parameter set by the user - see high frequency bound)", 
+    "maximum dimension high frequency" : 10,
+ 
+    "comment: " : "optional (default = 10): The frequency value used to differentiate between low frequency w < value and high frequency w >= value modes", 
+    "high frequency bound" : 25,
+
+    "comment: " : "Required: The target dimension for mode combination.  The code will combine modes together (by adding on progressively higher frequency contributions) provided the hilbert space dimension of the combined mode is less than this target dimension.", 
+    "target dimension" : 1000,
+
+
+
+    "comment: " : "Optional (default 1e-12): The tolerance parameter for the arnoldi method based exponential integrator.", 
+    "krylov tolerance" : 1e-12,
+
+    "comment: " : "Optional (default 6): The dimension of the krylov subspace dimension used for the arnoldi integrator.", 
+    "krylov dimension" : 12,
+
+    "comment: " : "Optional (default 1e-12): A parameter used to decide when to spawn new single particle functions using the action of the Hamiltonian squared metric.", 
+    "spawning parameter" : 1e-10,
+
+    "comment: " : "Optional (default 1e-12): A parameter used to determine whether modes are unoccupied or not - used in the spawning routine.", 
+    "unoccupied threshold" : 1e-5,
+
+    "comment: " : "Optional (default 1e-12): The minimum number of unoccupied SPFs.  If we have fewer than this the spawning algorithm will force spawn random new functions.", 
+    "minimum unoccupied" : 2,
+
+    "comment: " : "Optional (default 0): The  seed used for the random number generate used whenever random SPFs are spawned.",
+    "seed" : 0,
+
+    "comment: " : "Required: A matrix or array of matrices specifying the operators that we want to obtain the time-dependent expectation values of.  The expectation values are output as columns in the output file in the same order that the operators are present here.",
+    "ops" : [
+        [[0, 1], [1, 0]],
+        [[0, "-1.0j"], ["1.0j", 0]],
+        [[1, 0], [0, -1]],
+        [[1, 0], [0, 1]]
+    ],
+
+    "comment: " : "Optional: The output file name.  If no output file is specified this will just dump all outputs to standard out",
+    "output file" : "sb_sud_res_512_1e-3.out"
+
+}

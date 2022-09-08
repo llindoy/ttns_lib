@@ -32,11 +32,13 @@
 #include "bath/bath_types/debye.hpp"
 #include <orthopol.hpp>
 
+#include <io/input_wrapper.hpp>
+
 using namespace ttns;
 
 
 template <typename integ_type, typename complex_type, typename real_type, typename backend_type, typename op_type>
-void run(httensor<complex_type, backend_type>& A, integ_type& tdvp, sop_operator<complex_type, backend_type>& H, std::vector<op_type>& mops, std::vector<linalg::vector<real_type>>& SzSz, real_type tmax, std::ostream& os, bool print_first = false)
+void run(httensor<complex_type, backend_type>& A, integ_type& tdvp, sop_operator<complex_type, backend_type>& H, std::vector<op_type>& mops, std::vector<linalg::vector<real_type>>& SzSz, real_type tmax, std::ostream& os, bool print_first = false, bool print_hrank = false)
 {
     os << std::setprecision(16);
     if(print_first)
@@ -49,11 +51,14 @@ void run(httensor<complex_type, backend_type>& A, integ_type& tdvp, sop_operator
             os << SzSz[j](0) << " ";
         }
         os <<  " 0 0 0 ";
-        for(auto& c : A)
+        if(print_hrank)
         {
-            if(!c.is_root())
+            for(auto& c : A)
             {
-                os << c.hrank() << " " ;
+                if(!c.is_root())
+                {
+                    os << c.hrank() << " " ;
+                }
             }
         }
         os << std::endl;    
@@ -84,11 +89,14 @@ void run(httensor<complex_type, backend_type>& A, integ_type& tdvp, sop_operator
         }
         os << tdvp.engine().Nonesite() << " " << tdvp.engine().Ntwosite() << " ";
         os << tdvp.nh_applications()/static_cast<real_type>(A.size()) << " ";
-        for(auto& c : A)
+        if(print_hrank)
         {
-            if(!c.is_root())
+            for(auto& c : A)
             {
-                os << c.hrank() << " " ;
+                if(!c.is_root())
+                {
+                    os << c.hrank() << " " ;
+                }
             }
         }
         os << std::endl;
@@ -97,23 +105,6 @@ void run(httensor<complex_type, backend_type>& A, integ_type& tdvp, sop_operator
     os << "nh_app: " << tdvp.nh_applications()/static_cast<real_type>(A.size()) << std::endl;
 }
 
-
-void check_inputs(const rapidjson::Value& doc)
-{
-    ASSERT(doc.HasMember("tmax"), "tmax not found");
-    ASSERT(doc.HasMember("dt"), "dt not found"); 
-    ASSERT(doc.HasMember("nspf"), "nspf not found"); 
-    ASSERT(doc.HasMember("nspflower"), "nspflower not found"); 
-    ASSERT(doc.HasMember("maximumdimension"), "maximumdimension not found"); 
-    ASSERT(doc.HasMember("targetdimension"), "targetdimension not found"); 
-    ASSERT(doc.HasMember("n"), "n not found"); 
-    ASSERT(doc.HasMember("spectraldensity"), "spectraldensity not found"); 
-    ASSERT(doc.HasMember("maximumdimensionhighfreq"), "maximumdimensionhighfreq not found"); 
-    ASSERT(doc.HasMember("seed"), "seed not found"); 
-    ASSERT(doc.HasMember("eps"), "eps not found"); 
-    ASSERT(doc.HasMember("delta"), "delta not found"); 
-    ASSERT(doc.HasMember("btol"), "btol not found"); 
-}
 
 int main(int argc, char* argv[])
 {
@@ -128,6 +119,7 @@ int main(int argc, char* argv[])
         if(argc < 2)
         {
             std::cerr << argv[0] << " <input filename>" << std::endl;
+            std::cerr << eos::factory<eos::bath::continuous_bath<real_type>>::get_all_info() << std::endl;
             return 1;
         }
 
@@ -137,164 +129,97 @@ int main(int argc, char* argv[])
             std::cerr << "Could not open input file." << std::endl;
             return 1;
         }
+        using IObj = IOWRAPPER::input_base;
 
-        rapidjson::IStreamWrapper isw{ifs};
-
-        rapidjson::Document doc {};
-        doc.ParseStream(isw);
-
-        if(doc.HasParseError())
-        {
-            std::cerr << "Error: " << doc.GetParseError() << std::endl << "Offset: " << doc.GetErrorOffset() << std::endl;
-            return 1;
-        }
-        
-        eos::dfs_replace_space_and_capitals_in_key(doc, doc.GetAllocator());
-        CALL_AND_HANDLE(check_inputs(doc), "Invalid input file.");
+        IObj doc {};
+        IOWRAPPER::parse_stream(doc, ifs);
 
         //read in the inputs
-        
-        //read in the bath
         std::shared_ptr<eos::bath::continuous_bath<real_type>> exp;
 
-        real_type tmax, dt, eps, btol, delta;
-        size_type nspf, nspf_lower, nmax3, nmaxlargefreq, nmax, N, seed;
+        real_type tmax, dt;
+        CALL_AND_HANDLE(IOWRAPPER::load<real_type>(doc, "tmax", tmax), "Failed to load maximum integration time.");
+        CALL_AND_HANDLE(IOWRAPPER::load<real_type>(doc, "dt", dt), "Failed to load integration timestep.");
+
+        size_type nspf, nspf_lower, nmax_dim, ntarget, N;
+        CALL_AND_HANDLE(IOWRAPPER::load<size_type>(doc, "nspf", nspf), "Failed to load the number of single particle functions for the top level bath nodes.");
+        CALL_AND_HANDLE(IOWRAPPER::load<size_type>(doc, "nspflower", nspf_lower), "Failed to load the number of single particle functions for hte bottom level bath nodes.");
+        CALL_AND_HANDLE(IOWRAPPER::load<size_type>(doc, "maximumdimension", nmax_dim), "Failed to load the maximum local hilbert space dimension for a mode.");
+        CALL_AND_HANDLE(IOWRAPPER::load<size_type>(doc, "targetdimension", ntarget), "Failed to load the target hilbert space dimension.");
+        CALL_AND_HANDLE(IOWRAPPER::load<size_type>(doc, "nmodes", N), "Failed to load the number of bath modes used for discretisation.");
+
+        ASSERT(IOWRAPPER::has_member(doc, "bath"), "Spectral density not found.");
+        CALL_AND_HANDLE(exp =  eos::factory<eos::bath::continuous_bath<real_type>>::create(doc["bath"]), "Failed to read in bath spectral density.");
+        
+
+        size_type seed = 0;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<size_type>(doc, "seed", seed), "Failed to load the random number generator seed.");
+
+        size_type nmaxlargefreq = nmax_dim;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<size_type>(doc, "maximumdimensionhighfrequency", nmaxlargefreq), "Failed to load the maximum local hilbert space dimension for high frequency modes.");
+
+        real_type wc = 10.0;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "highfrequencybound", wc), "Failed to load the frequency to change over from low to high frequency.");
+
+        real_type btol = 1e-5;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "bathintegrationerrortolerance", btol), "Failed to load the random number generator seed.");
+
+        //now read in the system Hamiltonian
+        linalg::matrix<complex_type, backend_type> Hsys;
+        CALL_AND_HANDLE(IOWRAPPER::load<decltype(Hsys)>(doc, "hsys", Hsys), "Failed to load the system hamiltonian.");
+        ASSERT(Hsys.shape(0) == Hsys.shape(1), "The system hamiltonian is not square.");
+        size_type nhilb = Hsys.shape(0);
+
+    
+        //now read in the system bath coupling matrix
+        linalg::matrix<complex_type, backend_type> Scoup;
+        CALL_AND_HANDLE(IOWRAPPER::load<decltype(Scoup)>(doc, "scoup", Scoup), "Failed to load the system contribution to the system-bath coupling hamiltonian.");
+        ASSERT(Scoup.shape(0) == nhilb && Scoup.shape(1) == nhilb, "The system contribution to the system-bath coupling operator must be a square matrix.");
+
         real_type ecut = 3000;
-        size_type axis_index = 2;
-        real_type s = 1.0;
-        size_type nspins = 1;
-        real_type wc = 10;
-        try
-        {
-            tmax = eos::rapidjson_loader<real_type>::load(doc["tmax"]);
-            dt = eos::rapidjson_loader<real_type>::load(doc["dt"]);
-            eps = eos::rapidjson_loader<real_type>::load(doc["eps"]);
-            delta = eos::rapidjson_loader<real_type>::load(doc["delta"]);
-            btol = eos::rapidjson_loader<real_type>::load(doc["btol"]);
-
-            nspf = eos::rapidjson_loader<size_type>::load(doc["nspf"]);
-            nspf_lower = eos::rapidjson_loader<size_type>::load(doc["nspflower"]);
-            nmax3 = eos::rapidjson_loader<size_type>::load(doc["maximumdimension"]);
-            nmax = eos::rapidjson_loader<size_type>::load(doc["targetdimension"]);
-            N = eos::rapidjson_loader<size_type>::load(doc["n"]);
-            nmaxlargefreq = eos::rapidjson_loader<size_type>::load(doc["maximumdimensionhighfreq"]);
-            seed = eos::rapidjson_loader<size_type>::load(doc["seed"]);
-
-            ASSERT(doc["spectraldensity"].IsObject(), "spectral density is invalid.");
-            exp =  eos::factory<eos::bath::continuous_bath<real_type>>::create(doc["spectraldensity"]);
-        }
-        catch(const std::exception& ex)
-        {
-            std::cerr << "Failed to read input parameters from file." << std::endl;
-            return 1;
-        }
-
-        bool has_axis = false;
-
 
         size_type nthreads = 1;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<size_type>(doc, "nthreads", nthreads), "Failed to load nthreads.");
+        blas_set_num_threads(nthreads);
+        omp_set_num_threads(nthreads);
 
         real_type krylov_tolerance = 1e-12;
-        {
-            if(doc.HasMember("krylovtolerance"))
-            {
-                krylov_tolerance = eos::rapidjson_loader<real_type>::load(doc["krylovtolerance"]);
-            }
-        }
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "krylovtolerance", krylov_tolerance), "Failed to load krylov tolerance.");
+
+        size_type krylov_dim = 6;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<size_type>(doc, "krylovdimension", krylov_dim), "Failed to load krylov dimension.");
 
         real_type spawning_parameter = 1e-12;
-        {
-            if(doc.HasMember("spawningparameter"))
-            {
-                spawning_parameter = eos::rapidjson_loader<real_type>::load(doc["spawningparameter"]);
-            }
-        }
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "spawningparameter", spawning_parameter), "Failed to load spawning parameter.");
+
         real_type unoccupied_threshold = 1e-12;
-        {
-            if(doc.HasMember("unoccupiedthreshold"))
-            {
-                unoccupied_threshold = eos::rapidjson_loader<real_type>::load(doc["unoccupiedthreshold"]);
-            }
-        }
-
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "unoccupiedthreshold", unoccupied_threshold), "Failed to load unoccupied threshold parameter.");
+        
         size_type nspf_cap = nspf;
-        {
-            if(doc.HasMember("nspfcapacity"))
-            {
-                nspf_cap = eos::rapidjson_loader<real_type>::load(doc["nspfcapacity"]);
-            }
-            if(nspf_cap < nspf){nspf_cap = nspf;}
-        }
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<size_type>(doc, "nspfcapacity", nspf_cap), "Failed to load nspf capacity.");
+        if(nspf_cap < nspf){nspf_cap = nspf;}
+        
         size_type nspf_lower_cap = nspf_lower;
-        {
-            if(doc.HasMember("nspflowercapacity"))
-            {
-                nspf_lower_cap = eos::rapidjson_loader<real_type>::load(doc["nspflowercapacity"]);
-            }
-            if(nspf_lower_cap < nspf_lower){nspf_lower_cap = nspf_lower;}
-        }
-
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<size_type>(doc, "nspflowercapacity", nspf_cap), "Failed to load nspf lower capacity.");
+        if(nspf_lower_cap < nspf_lower){nspf_lower_cap = nspf_lower;}
+        
         size_type minimum_unoccupied = nspf_cap;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<size_type>(doc, "minimumunoccupied", minimum_unoccupied), "Failed to load the minimum number of unoccupied elements.");
+
+        bool print_hrank = false;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<bool>(doc, "printbonddimension", print_hrank ), "Failed to load whether or not to print the bond dimension of tensors..");
+
+        bool has_ofile = false;
+        std::string ofilename;
+        CALL_AND_HANDLE(has_ofile = IOWRAPPER::load_optional<std::string>(doc, "outputfile", ofilename), "Failed to load the minimum number of unoccupied elements.");
+
+        std::ofstream ofs;
+        if(has_ofile)
         {
-            if(doc.HasMember("minimumunoccupied"))
-            {
-                minimum_unoccupied = eos::rapidjson_loader<real_type>::load(doc["minimumunoccupied"]);
-            }
+            ofs.open(ofilename.c_str());
         }
-
-        //set up the system operators
-        size_t nhilb = nspins+1;
-
-
-        //maybe set these up as sparse matrices instead
-        //here we actually set this up so that we form 2*S_\alpha
-        linalg::matrix<complex_type, backend_type> Sx(nhilb, nhilb);
-        linalg::matrix<complex_type, backend_type> Sy(nhilb, nhilb);
-        linalg::matrix<complex_type, backend_type> Sz(nhilb, nhilb);
-
-        linalg::matrix<complex_type, backend_type> Hcoup(nhilb, nhilb);
-        linalg::matrix<complex_type, backend_type> Hcoup2(nhilb, nhilb);
-        linalg::matrix<complex_type, backend_type> Stot(nhilb, nhilb);
-    
-        //set up each of the spin 
-        {
-            linalg::matrix<complex_type> hSxi(nhilb, nhilb);
-            linalg::matrix<complex_type> hSyi(nhilb, nhilb);
-            linalg::matrix<complex_type> hSzi(nhilb, nhilb);
-            linalg::matrix<complex_type> hStot(nhilb, nhilb);
-
-            hSxi.fill_zeros();
-            hSyi.fill_zeros();
-            hSzi.fill_zeros();
-            hStot.fill_zeros();
-            real_type S2 = nspins/2.0*(nspins/2.0+1.0); 
-            for(size_t j=0; j < nhilb; ++j)
-            {
-                hStot(j, j) = S2;
-
-                real_type m = nspins/2.0-j;
-                if(j+1 != nhilb)
-                {
-                    hSxi(j, j+1) = sqrt(S2-m*(m-1));
-                    hSxi(j+1, j) = sqrt(S2-m*(m-1));
-
-                    hSyi(j, j+1) = sqrt(S2-m*(m-1))/complex_type(0, 1);
-                    hSyi(j+1, j) = sqrt(S2-m*(m-1))/complex_type(0, -1);
-                }
-
-                hSzi(j, j) = 2.0*(nspins/2.0-j);
-            }   
-            Sx = hSxi;
-            Sy = hSyi;
-            Sz = hSzi;
-            Stot = hStot;
-        }
-
 
         size_type Npoly = N;
-        //orthopol<real_type> poly;     logx_weight_polynomial(poly, Npoly);//, 1.0, 0.0);
-        //poly.scale(0.5);
-
 
         //in general we will need to scale the 
         orthopol<real_type> n_poly;   
@@ -302,14 +227,12 @@ int main(int argc, char* argv[])
         eos::bath::continuous_bath<double>::fourier_integ_type integ(10, 100);
         std::array<real_type, 2> bounds = exp->frequency_bounds(btol, integ.quad(), true);
         real_type wmax = bounds[1]; real_type wmin = bounds[0];
-        std::cerr << wmin << " " << wmax << std::endl;
         //need to figure out how to do the rescaling correctly.  The quadrature rules we are generating are incorrect
         if(exp->nonzero_temperature())
         {
             orthopol<real_type> cheb;     jacobi_polynomial(cheb, 2*Npoly, 0.0, 0.0);//, 1.0, 0.0);
 
             real_type wrange = wmax - wmin;
-            std::cerr << wmin << " " <<  wmax << " " << wrange << std::endl;
             //now shift the chebyshev functions
             cheb.shift((wmax+wmin)/wrange);
             cheb.scale(2.0);
@@ -320,8 +243,7 @@ int main(int argc, char* argv[])
         else
         {
             orthopol<real_type> cheb;     jacobi_polynomial(cheb, 2*Npoly, 1.0, 0.0);//, 1.0, 0.0);
-
-            real_type wmin = 0;
+            wmin = 0;
             real_type wrange = wmax - wmin;
 
             cheb.shift((wmax+wmin)/wrange);
@@ -343,31 +265,13 @@ int main(int argc, char* argv[])
         std::sort(wg.begin(), wg.end(), [](const std::pair<real_type, real_type>& a, const std::pair<real_type, real_type>& b){return std::abs(std::get<0>(a)) < std::abs(std::get<0>(b));});
 
         std::vector<real_type> _wk(N);   std::vector<real_type> _gk(N);
-        real_type sumgk = 0.0;
+        std::cerr << "w_k \t g_k" << std::endl;
         for(size_type i = 0; i < N; ++i)
         {
             _wk[i] = std::get<0>(wg[i]);
             _gk[i] = std::sqrt(std::get<1>(wg[i])/M_PI);    
-            sumgk += _gk[i];
-            std::cout << _wk[i] << " " << _gk[i] << std::endl;
-        }
-        exit(1);
 
-        //std::cout << "integral " << sumgk << std::endl;
-
-        linalg::matrix<complex_type, backend_type> Hsys(nhilb, nhilb);  Hsys.fill_zeros();
-
-        Hcoup = Sz;
-        Hsys = Sz*eps+Sx*delta;
-        
-    
-        real_type max_coupling = 0;
-        for(size_t i = 0; i < _wk.size(); ++i)
-        {
-            if(std::abs(_gk[i]) > max_coupling)
-            {
-                max_coupling = std::abs(_gk[i]);
-            }
+            std::cerr << _wk[i] << " " << _gk[i] << std::endl;
         }
         
         N = _wk.size();
@@ -393,57 +297,46 @@ int main(int argc, char* argv[])
                 }
             }
         }
+        std::cerr << "bath discretised." << std::endl;
 
         //start constructing the tree topology.  
         size_type nbranch = 2;
 
 
         //determine the partitioning of the N modes into nblocks so that they all have roughly the same numbers of states.
-        std::vector<size_type> partitions;
-        partition_modes(wk, ecut, 2*wc, partitions, nmax, 250, nmax3, nmaxlargefreq);
+        std::vector<size_t> partitions;
+        partition_modes(wk, ecut, 2*wc, partitions, ntarget, 250, nmax_dim, nmaxlargefreq);
         size_t nblocks = partitions.size();
-        std::vector<size_type> nmodes(nblocks);
-        std::vector<size_type> mode_dimensions(nblocks+1);
+        std::vector<size_t> nmodes(nblocks);
+        std::vector<size_t> mode_dimensions(nblocks+1);
         harmonic_mode_combination<real_type> mode_combination;
+        std::cout << nblocks << std::endl;
 
         mode_dimensions[0] = nhilb;
 
-        size_type counter;
-        std::vector<size_type> nskip(nblocks);
+        size_t counter;
+        std::vector<size_t> nskip(nblocks);
         {
             counter =0;
-            for(size_type i=0; i<nblocks; ++i)
+            for(size_t i=0; i<nblocks; ++i)
             {
                 nskip[i] = counter;
-                size_type nmaxt = wk[nskip[i]] > 2*wc ? nmaxlargefreq : nmax3;
+                size_t nmaxt = wk[nskip[i]] > 2*wc ? nmaxlargefreq : nmax_dim;
                 mode_combination.set_wk(wk.begin()+counter, wk.begin()+counter + partitions[i]); 
                 mode_combination.set_gk(gk[0].begin()+counter, gk[0].begin()+counter + partitions[i]); 
-                size_type nstates = mode_combination.construct_basis_topology(ecut, nmaxt);
+                size_t nstates = mode_combination.construct_basis_topology(ecut, nmaxt);
 
-                real_type ecut2 = ecut;
-                size_type nspfmax2 = nspf_lower < nspf ? nspf : nspf_lower;
-                size_t nmaxtempo =  nmaxt;
-                while(nstates < nspfmax2+1)
-                {
-                    ecut2 += 0.1*ecut;
-                    ++nmaxtempo;
-                    nstates = mode_combination.construct_basis_topology(ecut2, nmaxtempo);
-                }
                 nmodes[i] = nstates;
                 mode_dimensions[i+1] = nstates;
                 counter += partitions[i];
             }
         }
 
-        std::cerr << nthreads << std::endl;
-        blas_set_num_threads(nthreads);
-
         //now we build the topology tree for 
         ntree<size_type> topology{};    topology.insert(1);
         topology().insert(mode_dimensions[0]);        topology()[0].insert(mode_dimensions[0]);
         topology().insert(mode_dimensions[0]);
 
-        std::cerr << "building subtree" << std::endl;
         size_type nlevels = static_cast<size_type>(std::log2(nmodes.size()));
         ntree_builder<size_type>::htucker_subtree(topology()[1], nmodes, nbranch, 
         [nspf, nspf_lower, nlevels](size_type l)
@@ -466,8 +359,6 @@ int main(int argc, char* argv[])
         capacity().insert(mode_dimensions[0]);        capacity()[0].insert(mode_dimensions[0]);
         capacity().insert(mode_dimensions[0]);
 
-        std::cerr << "topology built" << std::endl;
-        std::cerr << "building subtree" << std::endl;
         ntree_builder<size_type>::htucker_subtree(capacity()[1], nmodes, nbranch, 
         [nspf_cap, nspf_lower_cap, nlevels](size_type l)
         {
@@ -484,21 +375,18 @@ int main(int argc, char* argv[])
         }
         );
         ntree_builder<size_type>::sanitise_tree(capacity);
+        std::cerr << "tree topology constructed" << std::endl;
 
-
-        std::cerr << "capacity built" << std::endl;
-
+        
         std::cerr << std::setprecision(16) << std::endl;
-
         //now we can construct our initial ttns representation of the wavefunction
         httensor<complex_type, backend_type> A(topology, capacity);     
-        std::cerr << "A constructed" << std::endl;
+        std::cerr << "htucker tensor built" << std::endl;
 
         //create the sum of product Hamiltonian
         std::vector<size_type> terms_per_mode(nblocks+1);
         for(auto& z : terms_per_mode){z = 1+1;}
         sop_operator<complex_type, backend_type> H( 1 + (1+1)*nblocks, mode_dimensions, terms_per_mode);
-
 
         H.bind(ops::dense_matrix_operator<complex_type, backend_type>{Hsys}, {0}, 0); //bind the system Hamiltonian
 
@@ -510,26 +398,16 @@ int main(int argc, char* argv[])
             {
                 sigma_z_indices[i] = 1 + (1+1)*i + spi + 1;
             }
-            H.bind(ops::dense_matrix_operator<complex_type, backend_type>{Hcoup}, sigma_z_indices, 0); 
+            H.bind(ops::dense_matrix_operator<complex_type, backend_type>{Scoup}, sigma_z_indices, 0); 
         }
 
         for(size_type i=0; i<nblocks; ++i)
         {   
-            size_type nmaxt = wk[nskip[i]] > 2*wc ? nmaxlargefreq : nmax3;
+            size_t nmaxt = wk[nskip[i]] > 2*wc ? nmaxlargefreq : nmax_dim;
             //set up the required mode information
             mode_combination.set_wk(wk.begin()+nskip[i], wk.begin()+nskip[i] + partitions[i]); 
             mode_combination.set_gk(gk[0].begin()+nskip[i], gk[0].begin()+nskip[i] + partitions[i]); 
-            size_type nstates = mode_combination.construct_basis_topology(ecut, nmaxt);
-            real_type ecut2 = ecut;
-
-            size_type nspfmax2 = nspf_lower < nspf ? nspf : nspf_lower;
-            size_t nmaxtempo =  nmaxt;
-            while(nstates < nspfmax2+1)
-            {
-                ecut2 += 0.1*ecut;
-                ++nmaxtempo;
-                nstates = mode_combination.construct_basis_topology(ecut2, nmaxtempo);
-            }
+            mode_combination.construct_basis_topology(ecut, nmaxt);
 
             //now we set up the diagonal boson operator terms
             {
@@ -551,19 +429,39 @@ int main(int argc, char* argv[])
                 }
             }
         }
-        std::cerr << "sop hamiltonian constructed" << std::endl;
 
-        //and the operator we are computing the value of
-        std::vector<ops::dense_matrix_operator<complex_type, backend_type>> mops(4);
-        mops[0] = ops::dense_matrix_operator<complex_type, backend_type>(Stot);
-        mops[1] = ops::dense_matrix_operator<complex_type, backend_type>(Sx/(1.0*nspins));
-        mops[2] = ops::dense_matrix_operator<complex_type, backend_type>(Sy/(1.0*nspins));
-        mops[3] = ops::dense_matrix_operator<complex_type, backend_type>(Sz/(1.0*nspins));
+        std::cerr << "sum of product operator initialised." << std::endl;
+
+        std::vector<linalg::matrix<complex_type>> m_ops;
+        ASSERT(IOWRAPPER::has_member(doc, "ops"), "Unable to find observable operators.");
+        if(IOWRAPPER::is_type<linalg::matrix<complex_type>>(doc, "ops"))
+        {
+            m_ops.resize(1);
+            CALL_AND_HANDLE(IOWRAPPER::load<linalg::matrix<complex_type>>(doc, "ops", m_ops[0]), "Failed to read in the observable operators.");
+        }
+        else if(IOWRAPPER::is_type<std::vector<linalg::matrix<complex_type>>>(doc, "ops"))
+        {
+            CALL_AND_HANDLE(IOWRAPPER::load<decltype(m_ops)>(doc, "ops", m_ops), "Failed to read in the observable operators.");
+        }
+        else
+        {
+            RAISE_EXCEPTION("Invalid observable operator type.");
+        }
+
+        std::vector<ops::dense_matrix_operator<complex_type, backend_type>> mops(m_ops.size());
+        for(size_t i = 0; i < m_ops.size(); ++i)
+        {
+            ASSERT(m_ops[i].size(0) == nhilb && m_ops[i].size(1) == nhilb, "The size of the observable operator matrix is not the same as the system Hilbert space dimension.");
+            mops[i] = ops::dense_matrix_operator<complex_type, backend_type>(m_ops[i]);
+        }
+        
+
+      
 
         size_t nsteps = static_cast<size_t>(tmax/dt)+50;
     
-        std::vector<linalg::vector<real_type>> SzSz(4);
-        for(size_type i = 0; i  < 4; ++i){SzSz[i].resize(nsteps);  SzSz[i].fill_zeros();}
+        std::vector<linalg::vector<real_type>> SzSz(m_ops.size());
+        for(size_type i = 0; i < m_ops.size(); ++i){SzSz[i].resize(nsteps);  SzSz[i].fill_zeros();}
         
         std::mt19937 rng(seed);
 
@@ -640,18 +538,26 @@ int main(int argc, char* argv[])
             }
 
             A.set_is_orthogonalised();
-            std::cerr << "tensor initialised" << std::endl;
 
             //now we set up the tdvp integrator object
-            subspace_expansion_projector_splitting_integrator<complex_type, backend_type> tdvp(A, H, 24, krylov_tolerance, nthreads);
-            std::cerr << "integrator initialised" << std::endl;
+            subspace_expansion_projector_splitting_integrator<complex_type, backend_type> tdvp(A, H, krylov_dim, krylov_tolerance, nthreads);
             //auto& mel = tdvp.mel();
             
             tdvp.dt() = dt;
             tdvp.spawning_threshold() = spawning_parameter;
             tdvp.unoccupied_threshold() = unoccupied_threshold;
             tdvp.minimum_unoccupied() = minimum_unoccupied;
-            run(A, tdvp, H, mops, SzSz, tmax, std::cout, true);
+
+        
+
+            if(has_ofile)
+            {
+                run(A, tdvp, H, mops, SzSz, tmax, ofs, true, print_hrank);
+            }
+            else
+            {
+                run(A, tdvp, H, mops, SzSz, tmax, std::cout, true, print_hrank);
+            }
         }
     }
     catch(const std::exception& ex)

@@ -306,7 +306,7 @@ public:
 template <typename T>
 class levin_traits<levin_sine<T>>
 {
-Public:   
+public:   
     using result_type = T;
     using real_type = typename linalg::get_real_type<T>::type;
     using value_type = T;

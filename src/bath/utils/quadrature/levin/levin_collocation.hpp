@@ -247,7 +247,7 @@ public:
 
     using base_type = levin_base<levin_fourier<T>>;
     using base_type::operator=;
-    using base_type::levin_base;
+    using typename base_type::levin_base;
 public:
 
     static constexpr size_t nfuncs(){return 1;}
@@ -282,7 +282,7 @@ public:
 
     using base_type = levin_base<levin_sine<T>>;
     using base_type::operator=;
-    using base_type::levin_base;
+    using typename base_type::levin_base;
 public:
 
     static constexpr size_t nfuncs(){return 2;}
@@ -319,7 +319,7 @@ public:
 
     using base_type = levin_base<levin_cosine<T>>;
     using base_type::operator=;
-    using base_type::levin_base;
+    using typename base_type::levin_base;
 public:
 
     static constexpr size_t nfuncs(){return 2;}

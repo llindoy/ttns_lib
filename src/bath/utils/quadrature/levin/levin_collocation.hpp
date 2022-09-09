@@ -243,7 +243,7 @@ class levin_fourier : public levin_base<levin_fourier<T> >
 {
 public:
     using real_type = typename linalg::get_real_type<T>::type;
-    using result_type = std::complex<real_type>;
+    using result_type = linalg::complex<real_type>;
     using value_type = T;
 
     using base_type = levin_base<levin_fourier<T>>;
@@ -270,7 +270,7 @@ class levin_traits<levin_fourier<T>>
 {
 public:   
     using real_type = typename linalg::get_real_type<T>::type;
-    using result_type = std::complex<real_type>;
+    using result_type = linalg::complex<real_type>;
     using value_type = T;
 };
 

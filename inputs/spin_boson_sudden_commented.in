@@ -5,6 +5,8 @@
     "comment: " : "Required: A dense matrix storing the system contribution to the system-bath coupling Hamiltonian.", 
     "Scoup" : [[1, 0], [0, -1]],
 
+    "comment: " : "Required: The initial system wavefunction.", 
+    "psi0" : [1, 0],
 
     "comment: " : "Required: The bath parameters",
     "bath" : 

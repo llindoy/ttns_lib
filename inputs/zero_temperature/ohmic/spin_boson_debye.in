@@ -1,0 +1,51 @@
+{
+    "Hsys" : [[0,  1], [1, 0]], 
+    "Scoup" : [[1, 0], [0, -1]],
+    "psi0" : [1, 0],
+
+    "bath" : 
+    {
+        "type" : "debye",
+        "wc" : 25.0,
+        "comment:" :  "Here alpha = wc*lambda/2, where lambda is the bath reorgansiation energy. ", 
+        "alpha" : 2.0
+    },
+
+    "bath integration error tolerance" : 8e-2,
+    "moment scaling" : 1.8,
+    "max frequency cutoff" : 500,
+
+
+    "tmax" : 5.0,
+    "dt" : 1e-3,
+
+    "nspf" : 4,
+    "nspf lower" : 4,
+    "nspf capacity" : 64,
+    "nspf lower capacity" : 16,
+
+    "nmodes" : 512,
+
+    "maximum dimension" : 30,
+    "maximum dimension high frequency" : 10,
+    "high frequency bound" : 25,
+    "target dimension" : 1000,
+
+    "krylov tolerance" : 1e-12,
+    "krylov dimension" : 12,
+
+    "spawning parameter" : 1e-10,
+    "unoccupied threshold" : 1e-5,
+    "minimum unoccupied" : 2,
+
+    "seed" : 0,
+
+    "ops" : [
+        [[0, 1], [1, 0]],
+        [[0, "-1.0j"], ["1.0j", 0]],
+        [[1, 0], [0, -1]],
+        [[1, 0], [0, 1]]
+    ],
+
+    "output file" : "sb_debye_512.out"
+}

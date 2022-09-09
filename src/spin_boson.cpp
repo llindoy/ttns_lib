@@ -161,6 +161,16 @@ int main(int argc, char* argv[])
         real_type wc = 10.0;
         CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "highfrequencybound", wc), "Failed to load the frequency to change over from low to high frequency.");
 
+
+        bool user_specified_cutoff = false;
+        real_type maximum_included_frequency = 0;
+        CALL_AND_HANDLE(user_specified_cutoff = IOWRAPPER::load_optional<real_type>(doc, "maxfrequencycutoff", maximum_included_frequency), "Failed to load the hard frequency cutoff.");
+
+
+        bool user_specified_minimum_cutoff = false;
+        real_type negative_included_frequency = 0;
+        CALL_AND_HANDLE(user_specified_minimum_cutoff = IOWRAPPER::load_optional<real_type>(doc, "negativefrequencycutoff", negative_included_frequency), "Failed to load the hard frequency cutoff.");
+
         real_type btol = 1e-5;
         CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "bathintegrationerrortolerance", btol), "Failed to load the random number generator seed.");
 
@@ -169,6 +179,11 @@ int main(int argc, char* argv[])
         CALL_AND_HANDLE(IOWRAPPER::load<decltype(Hsys)>(doc, "hsys", Hsys), "Failed to load the system hamiltonian.");
         ASSERT(Hsys.shape(0) == Hsys.shape(1), "The system hamiltonian is not square.");
         size_type nhilb = Hsys.shape(0);
+
+
+        linalg::vector<complex_type, backend_type> psi0;
+        CALL_AND_HANDLE(IOWRAPPER::load<decltype(psi0)>(doc, "psi0", psi0), "Failed to load the system wavefunction.");
+        ASSERT(psi0.shape(0) == nhilb, "The system wavefunction is not the correct size.");
 
     
         //now read in the system bath coupling matrix
@@ -183,6 +198,10 @@ int main(int argc, char* argv[])
         blas_set_num_threads(nthreads);
         omp_set_num_threads(nthreads);
 
+
+        real_type moment_scaling = 2;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "momentscaling", moment_scaling), "Failed to load krylov tolerance.");
+
         real_type krylov_tolerance = 1e-12;
         CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "krylovtolerance", krylov_tolerance), "Failed to load krylov tolerance.");
 
@@ -194,13 +213,18 @@ int main(int argc, char* argv[])
 
         real_type unoccupied_threshold = 1e-12;
         CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "unoccupiedthreshold", unoccupied_threshold), "Failed to load unoccupied threshold parameter.");
-        
+
+        real_type jalpha = 1.0;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "jacobialpha", jalpha), "Failed to load unoccupied threshold parameter.");
+        real_type jbeta = 0.0;
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(doc, "jacobibeta", jbeta), "Failed to load unoccupied threshold parameter.");
+
         size_type nspf_cap = nspf;
         CALL_AND_HANDLE(IOWRAPPER::load_optional<size_type>(doc, "nspfcapacity", nspf_cap), "Failed to load nspf capacity.");
         if(nspf_cap < nspf){nspf_cap = nspf;}
         
         size_type nspf_lower_cap = nspf_lower;
-        CALL_AND_HANDLE(IOWRAPPER::load_optional<size_type>(doc, "nspflowercapacity", nspf_cap), "Failed to load nspf lower capacity.");
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<size_type>(doc, "nspflowercapacity", nspf_lower_cap), "Failed to load nspf lower capacity.");
         if(nspf_lower_cap < nspf_lower){nspf_lower_cap = nspf_lower;}
         
         size_type minimum_unoccupied = nspf_cap;
@@ -225,31 +249,46 @@ int main(int argc, char* argv[])
         orthopol<real_type> n_poly;   
 
         eos::bath::continuous_bath<double>::fourier_integ_type integ(10, 100);
-        std::array<real_type, 2> bounds = exp->frequency_bounds(btol, integ.quad(), true);
-        real_type wmax = bounds[1]; real_type wmin = bounds[0];
+        std::array<real_type, 2> bounds ;
+        if(user_specified_cutoff) 
+        {
+            bounds[1] = maximum_included_frequency;
+            bounds[0] = -bounds[1];
+        }
+        else
+        {
+            bounds = exp->frequency_bounds(btol, integ.quad(), true);
+        }
+
         //need to figure out how to do the rescaling correctly.  The quadrature rules we are generating are incorrect
         if(exp->nonzero_temperature())
         {
-            orthopol<real_type> cheb;     jacobi_polynomial(cheb, 2*Npoly, 0.0, 0.0);//, 1.0, 0.0);
+            orthopol<real_type> cheb;     jacobi_polynomial(cheb, 2*Npoly, jalpha, jbeta);//, 1.0, 0.0);
 
+            if(user_specified_minimum_cutoff)
+            {
+                bounds[0] = negative_included_frequency;
+            }
+    
+            real_type wmax = bounds[1]; real_type wmin = bounds[0];
             real_type wrange = wmax - wmin;
             //now shift the chebyshev functions
             cheb.shift((wmax+wmin)/wrange);
-            cheb.scale(2.0);
-            nonclassical_polynomial(n_poly, cheb, Npoly, [exp, &wrange](real_type x){return 0.5*(exp->S(x*wrange/4) + exp->J(x*wrange/4));}, 1e-9);
-            n_poly.scale(wrange/4.0);
+            cheb.scale(moment_scaling);
+            nonclassical_polynomial(n_poly, cheb, Npoly, [exp, &wrange, &moment_scaling](real_type x){return 0.5*(exp->S(x*wrange/(2*moment_scaling)) + exp->J(x*wrange/(2*moment_scaling)));}, 1e-9);
+            n_poly.scale(wrange/(2*moment_scaling));
 
         }
         else
         {
-            orthopol<real_type> cheb;     jacobi_polynomial(cheb, 2*Npoly, 1.0, 0.0);//, 1.0, 0.0);
-            wmin = 0;
+            orthopol<real_type> cheb;     jacobi_polynomial(cheb, 2*Npoly, jalpha, jbeta);//, 1.0, 0.0);
+            real_type wmax = bounds[1];    real_type wmin = 0;
             real_type wrange = wmax - wmin;
 
             cheb.shift((wmax+wmin)/wrange);
-            cheb.scale(2.0);
-            nonclassical_polynomial(n_poly, cheb, Npoly, [exp, &wrange](real_type x){return exp->J(x*wrange/4);}, 1e-10);
-            n_poly.scale(wrange/4.0);
+            cheb.scale(moment_scaling);
+            nonclassical_polynomial(n_poly, cheb, Npoly, [exp, &wrange, &moment_scaling](real_type x){return exp->J(x*wrange/(2*moment_scaling));}, 1e-10);
+            n_poly.scale(wrange/(2.0*moment_scaling));
         }
 
         n_poly.compute_nodes_and_weights();
@@ -262,6 +301,7 @@ int main(int argc, char* argv[])
         {
             wg[i] = std::make_pair(n_poly.nodes()(i), n_poly.weights()(i));
         }
+
         std::sort(wg.begin(), wg.end(), [](const std::pair<real_type, real_type>& a, const std::pair<real_type, real_type>& b){return std::abs(std::get<0>(a)) < std::abs(std::get<0>(b));});
 
         std::vector<real_type> _wk(N);   std::vector<real_type> _gk(N);
@@ -468,96 +508,92 @@ int main(int argc, char* argv[])
         ttns::two_site_variations<complex_type, backend_type> twosite;
         std::vector<size_t> state_prev(nblocks, 0);
         //evaluate the Sz1Szk correlation functions.  We need to sample over identity for the Sz1 state
-        for(size_type traj = 0; traj < 1; ++traj)//nhilb/2; ++ traj)
+        //initialise the wavefunction in the ground state of the bosonic system and in the |0> state of the electronic system
+        for(auto& c : A)
         {
-            //initialise the wavefunction in the ground state of the bosonic system and in the |0> state of the electronic system
-            for(auto& c : A)
+            if(c.is_leaf())
             {
-                if(c.is_leaf())
+                linalg::matrix<complex_type, backend_type> ct(c().shape(1), c().shape(0));  ct.fill_zeros();
+                if(c.leaf_index() == 0)
                 {
-                    
-                    if(c.leaf_index() == 0)
-                    {
-                        for(size_type i=0; i<c().size(0); ++i){for(size_type j=0; j<c().size(1); ++j){c()(i, j) = (i == j ? 1.0 : 0.0);}}
-                    }
-                    else
-                    {
-                        linalg::matrix<complex_type, backend_type> ct(c().shape(1), c().shape(0));
-
-                        //generate haar random variables
-                        for(size_type j=0; j<c().shape(1); ++j){ct(j, 0) = (0 == j ? 1.0 : 0.0);}
-                       
-                        std::uniform_real_distribution<real_type> dist(0, 2.0*acos(real_type(-1.0)));
-                        std::normal_distribution<real_type> length_dist(0, 1);
-
-                        for(size_type i=1; i<c().shape(1); ++i)
-                        {
-                            bool vector_generated = false;
-                
-                            while(!vector_generated)
-                            {
-                                //generate a random vector
-                                for(size_type j=0; j<c().shape(0); ++j)
-                                {
-                                    real_type theta = dist(rng);
-                                    ct(i, j) = length_dist(rng)*complex_type(cos(theta), sin(theta));
-                                }
-
-                                //now we normalise it
-                                ct[i] /= sqrt(dot_product(conj(ct[i]), ct[i]));
-
-                                //now we attempt to modified gram-schmidt this
-                                //if we run into linear dependence then we need to try another random vector
-                                for(size_type j=0; j < i; ++j)
-                                {
-                                    ct[i] -= dot_product(conj(ct[j]), ct[i])*ct[j];
-                                }
-
-                                //now we compute the norm of the new vector
-                                real_type norm = sqrt(real(dot_product(conj(ct[i]), ct[i])));
-                                if(norm > 1e-12)
-                                {
-                                    ct[i] /= norm;
-                                    vector_generated = true;
-                                }
-                            }
-                        }
-                        c().as_matrix() = trans(ct);
-                    }
+                    CALL_AND_HANDLE(ct[0] = psi0, "Failed to assign psi0 in htucker.");
+                    //for(size_type i=0; i<c().size(0); ++i){){c()(i, j) = (i == j ? 1.0 : 0.0);}}
+                    //for(size_type i=0; i<c().size(0); ++i){for(size_type j=0; j<c().size(1); ++j){c()(i, j) = (i == j ? 1.0 : 0.0);}}
                 }
-                //if its an interior node fill it with the identity matrix
-                else if(!c.is_root())
-                {
-                    for(size_type i=0; i<c().size(0); ++i){for(size_type j=0; j<c().size(1); ++j){c()(i, j) = (i == j ? 1.0 : 0.0);}}
-                }
-                //and fill the root node with the matrix with 1 at position 0, 0 and 0 everywhere else
                 else
                 {
-                    for(size_type i=0; i<c().size(0); ++i){for(size_type j=0; j<c().size(1); ++j){c()(i, j) = ((i==j)&&(i==0) ? 1.0 : 0.0);}}
+                    ct(0, 0) = 1.0;
                 }
-            }
 
-            A.set_is_orthogonalised();
-
-            //now we set up the tdvp integrator object
-            subspace_expansion_projector_splitting_integrator<complex_type, backend_type> tdvp(A, H, krylov_dim, krylov_tolerance, nthreads);
-            //auto& mel = tdvp.mel();
+                std::uniform_real_distribution<real_type> dist(0, 2.0*acos(real_type(-1.0)));
+                std::normal_distribution<real_type> length_dist(0, 1);
+                for(size_type i=1; i<c().shape(1); ++i)
+                {
+                    bool vector_generated = false;
             
-            tdvp.dt() = dt;
-            tdvp.spawning_threshold() = spawning_parameter;
-            tdvp.unoccupied_threshold() = unoccupied_threshold;
-            tdvp.minimum_unoccupied() = minimum_unoccupied;
+                    while(!vector_generated)
+                    {
+                        //generate a random vector
+                        for(size_type j=0; j<c().shape(0); ++j)
+                        {
+                            real_type theta = dist(rng);
+                            ct(i, j) = length_dist(rng)*complex_type(cos(theta), sin(theta));
+                        }
+
+                        //now we normalise it
+                        ct[i] /= sqrt(dot_product(conj(ct[i]), ct[i]));
+
+                        //now we attempt to modified gram-schmidt this
+                        //if we run into linear dependence then we need to try another random vector
+                        for(size_type j=0; j < i; ++j)
+                        {
+                            ct[i] -= dot_product(conj(ct[j]), ct[i])*ct[j];
+                        }
+
+                        //now we compute the norm of the new vector
+                        real_type norm = sqrt(real(dot_product(conj(ct[i]), ct[i])));
+                        if(norm > 1e-12)
+                        {
+                            ct[i] /= norm;
+                            vector_generated = true;
+                        }
+                    }
+                }
+                c().as_matrix() = trans(ct);
+                
+            }
+            //if its an interior node fill it with the identity matrix
+            else if(!c.is_root())
+            {
+                for(size_type i=0; i<c().size(0); ++i){for(size_type j=0; j<c().size(1); ++j){c()(i, j) = (i == j ? 1.0 : 0.0);}}
+            }
+            //and fill the root node with the matrix with 1 at position 0, 0 and 0 everywhere else
+            else
+            {
+                for(size_type i=0; i<c().size(0); ++i){for(size_type j=0; j<c().size(1); ++j){c()(i, j) = ((i==j)&&(i==0) ? 1.0 : 0.0);}}
+            }
+        }
+
+        A.set_is_orthogonalised();
+
+        //now we set up the tdvp integrator object
+        subspace_expansion_projector_splitting_integrator<complex_type, backend_type> tdvp(A, H, krylov_dim, krylov_tolerance, nthreads);
+        //auto& mel = tdvp.mel();
+        
+        tdvp.dt() = dt;
+        tdvp.spawning_threshold() = spawning_parameter;
+        tdvp.unoccupied_threshold() = unoccupied_threshold;
+        tdvp.minimum_unoccupied() = minimum_unoccupied;
 
         
 
-            if(has_ofile)
-            {
-                run(A, tdvp, H, mops, SzSz, tmax, ofs, true, print_hrank);
-            }
-            else
-            {
-                run(A, tdvp, H, mops, SzSz, tmax, std::cout, true, print_hrank);
-            }
+        if(has_ofile)
+        {
+            run(A, tdvp, H, mops, SzSz, tmax, ofs, true, print_hrank);
+        }
+        else
+        {
+            run(A, tdvp, H, mops, SzSz, tmax, std::cout, true, print_hrank);
         }
     }
     catch(const std::exception& ex)

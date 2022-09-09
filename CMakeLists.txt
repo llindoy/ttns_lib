@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 3.0)
 project(ttns_lib LANGUAGES CXX)
 
-option(JUST_INSTALL_TTNS_LIB "Don't do anything besides installing the Library" On)
+option(JUST_INSTALL_TTNS_LIB "Don't do anything besides installing the Library" OFF)
 
 add_library(ttns_lib INTERFACE)
 target_include_directories(ttns_lib INTERFACE

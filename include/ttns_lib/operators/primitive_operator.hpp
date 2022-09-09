@@ -105,7 +105,7 @@ public:
     void apply(const_matrix_ref A, matrix_ref working, real_type /*t*/, real_type /*dt*/) final {working = A;}
     void apply(const_vector_ref A, vector_ref working) final {working = A;}
     void apply(const_vector_ref A, vector_ref working, real_type /*t*/, real_type /*dt*/) final {working = A;}
-    void update(real_type t, real_type dt) final{};     //function for allowing you to update time-dependent Hamiltonians
+    void update(real_type /* t */, real_type /* dt */) final{};     //function for allowing you to update time-dependent Hamiltonians
     base_type* clone() const{return new identity(base_type::m_size);}
 
 #ifdef CEREAL_LIBRARY_FOUND

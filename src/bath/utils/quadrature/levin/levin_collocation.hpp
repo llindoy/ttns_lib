@@ -174,7 +174,7 @@ protected:
     linalg::vector<result_type> m_c;
 };
 
-
+/*
 template <typename T>
 class levin_bessel : public levin_base<levin_bessel<T> >
 {
@@ -228,7 +228,8 @@ public:
 protected:
     real_type m_nu;
 };
-
+*/
+/*
 template <typename T>
 struct levin_traits<levin_bessel<T>>
 {
@@ -236,7 +237,7 @@ struct levin_traits<levin_bessel<T>>
     using real_type = typename linalg::get_real_type<T>::type;
     using value_type = T;
 };
-
+*/
 template <typename T>
 class levin_fourier : public levin_base<levin_fourier<T> >
 {
@@ -265,8 +266,9 @@ public:
 };
 
 template <typename T>
-struct levin_traits<levin_fourier<T>>
+class levin_traits<levin_fourier<T>>
 {
+public:   
     using real_type = typename linalg::get_real_type<T>::type;
     using result_type = std::complex<real_type>;
     using value_type = T;
@@ -302,8 +304,9 @@ public:
 };
 
 template <typename T>
-struct levin_traits<levin_sine<T>>
+class levin_traits<levin_sine<T>>
 {
+Public:   
     using result_type = T;
     using real_type = typename linalg::get_real_type<T>::type;
     using value_type = T;
@@ -339,8 +342,9 @@ public:
 };
 
 template <typename T>
-struct levin_traits<levin_cosine<T>>
+class levin_traits<levin_cosine<T>>
 {
+public:
     using result_type = T;
     using real_type = typename linalg::get_real_type<T>::type;
     using value_type = T;

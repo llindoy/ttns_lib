@@ -16,6 +16,15 @@ if(USE_GEMM3M)
     add_compile_definitions(USE_GEMM3M)
 endif()
 
+IF(APPLE)
+    set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+    set(CMAKE_HAVE_THREADS_LIBRARY 1)
+    set(CMAKE_USE_WIN32_THREADS_INIT 0)
+    set(CMAKE_USE_PTHREADS_INIT 1)
+    set(THREADS_PREFER_PTHREAD_FLAG ON)
+ENDIF()
+
+
 if(COMPILER_SET)
 else()
     if(MSVC)
@@ -58,9 +67,6 @@ else()
             if(USE_OPENMP)
                 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
             endif()
-        else()
-            message(STATUS "${CMAKE_CXX_COMPILER_ID}")
-            message(FATAL_ERROR "Compiler not supported.")
         endif()
         
 

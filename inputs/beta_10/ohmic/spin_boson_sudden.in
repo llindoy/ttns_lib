@@ -15,7 +15,7 @@
     
     "moment scaling" : 2.0,
     "max frequency cutoff" : 25,
-    "negative frequency cutoff" : -2,
+    "negative frequency cutoff" : -25,
     "jacobi alpha" : 0.5,
     "jacobi beta" : 0.5,
 

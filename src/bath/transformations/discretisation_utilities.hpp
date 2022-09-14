@@ -2,8 +2,6 @@
 #define EOS_DISCRETISATION_UTILITIES_HPP
 
 
-namespace eos
-{
 
 
 template <typename T> 
@@ -81,8 +79,6 @@ public:
         return x;
     }
 };
-
-}
 
 #endif
 

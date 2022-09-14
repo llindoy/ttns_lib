@@ -30,8 +30,9 @@
 #include "bath/bath_types/sudden.hpp"
 #include "bath/bath_types/gaussian.hpp"
 #include "bath/bath_types/debye.hpp"
-#include <orthopol.hpp>
+#include "bath/bath_types/jacobi_cutoff.hpp"
 
+#include <orthopol.hpp>
 #include <io/input_wrapper.hpp>
 
 using namespace ttns;
@@ -119,7 +120,7 @@ int main(int argc, char* argv[])
         if(argc < 2)
         {
             std::cerr << argv[0] << " <input filename>" << std::endl;
-            std::cerr << eos::factory<eos::bath::continuous_bath<real_type>>::get_all_info() << std::endl;
+            std::cerr << io::factory<bath::continuous_bath<real_type>>::get_all_info() << std::endl;
             return 1;
         }
 
@@ -135,7 +136,7 @@ int main(int argc, char* argv[])
         IOWRAPPER::parse_stream(doc, ifs);
 
         //read in the inputs
-        std::shared_ptr<eos::bath::continuous_bath<real_type>> exp;
+        std::shared_ptr<bath::continuous_bath<real_type>> exp;
 
         real_type tmax, dt;
         CALL_AND_HANDLE(IOWRAPPER::load<real_type>(doc, "tmax", tmax), "Failed to load maximum integration time.");
@@ -149,7 +150,7 @@ int main(int argc, char* argv[])
         CALL_AND_HANDLE(IOWRAPPER::load<size_type>(doc, "nmodes", N), "Failed to load the number of bath modes used for discretisation.");
 
         ASSERT(IOWRAPPER::has_member(doc, "bath"), "Spectral density not found.");
-        CALL_AND_HANDLE(exp =  eos::factory<eos::bath::continuous_bath<real_type>>::create(doc["bath"]), "Failed to read in bath spectral density.");
+        CALL_AND_HANDLE(exp =  io::factory<bath::continuous_bath<real_type>>::create(doc["bath"]), "Failed to read in bath spectral density.");
         
 
         size_type seed = 0;
@@ -248,7 +249,7 @@ int main(int argc, char* argv[])
         //in general we will need to scale the 
         orthopol<real_type> n_poly;   
 
-        eos::bath::continuous_bath<double>::fourier_integ_type integ(10, 100);
+        bath::continuous_bath<double>::fourier_integ_type integ(10, 100);
         std::array<real_type, 2> bounds ;
         if(user_specified_cutoff) 
         {

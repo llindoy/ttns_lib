@@ -1,34 +1,22 @@
-cmake_minimum_required (VERSION 3.0)
-project(mlmctdh LANGUAGES CXX)
+cmake_minimum_required (VERSION 3.12)
+project(mlmctdh LANGUAGES C CXX)
 
 get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/ ${CMAKE_MODULE_PATH})
+
 
 option(USE_CUDA "Compile with cuda" OFF)
 option(USE_OPENMP "Compile with openmp" OFF)
 option(USE_GEMM3M "Compile with openmp" OFF)
 
 if(USE_OPENMP)
-    add_compile_definitions(USE_OPENMP)
+    #add_compile_definitions(USE_OPENMP)
 endif()
 
 if(USE_GEMM3M)
     add_compile_definitions(USE_GEMM3M)
 endif()
 
-IF(APPLE)
-    set(CMAKE_THREAD_LIBS_INIT "-lpthread")
-    set(CMAKE_HAVE_THREADS_LIBRARY 1)
-    set(CMAKE_USE_WIN32_THREADS_INIT 0)
-    set(CMAKE_USE_PTHREADS_INIT 1)
-    set(THREADS_PREFER_PTHREAD_FLAG ON)
-ENDIF()
-
-set(CMAKE_THREAD_LIBS_INIT "-lpthread")
-set(CMAKE_HAVE_THREADS_LIBRARY 1)
-set(CMAKE_USE_WIN32_THREADS_INIT 0)
-set(CMAKE_USE_PTHREADS_INIT 1)
-set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 if(COMPILER_SET)
 else()
@@ -41,7 +29,6 @@ else()
             #set(CMAKE_CXX_FLAGS "-Werror ${CMAKE_CXX_FLAGS}")
         endif(WITH_WERROR)
 
-        option(CLANG_USE_LIBCPP "Use libc++ for clang compilation" OFF)
 
         #additional compilation flags for GNU compilers
         if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -64,13 +51,23 @@ else()
                 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp")
             endif()
 
-        elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-            if(CLANG_USE_LIBCPP)
-                set(CMAKE_CXX_FLAGS "-stdlib=libc++ ${CMAKE_CXX_FLAGS}")
-                set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
-            endif()
+        elseif ( ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang") )
+            find_package(LLVM REQUIRED)
+            find_package(Clang REQUIRED)
+
+            #if we are using clang then find threads
+            set(CMAKE_THREAD_LIBS_INIT "-lpthread")
+            set(CMAKE_HAVE_THREADS_LIBRARY 1)
+            set(CMAKE_USE_WIN32_THREADS_INIT 0)
+            set(CMAKE_USE_PTHREADS_INIT 1)
+            set(THREADS_PREFER_PTHREAD_FLAG ON)
+
+            set(CMAKE_CXX_FLAGS "-stdlib=libc++ -std=c++11${CMAKE_CXX_FLAGS}")
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ ")
+
+
             if(USE_OPENMP)
-                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+                set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp=libomp")
             endif()
         endif()
         
@@ -119,8 +116,8 @@ set(EOS_INCLUDE_DIRECTORIES "${rapidjson_SOURCE_DIR}/include/;${EOS_INCLUDE_DIRE
 
 if(DEFINED BLA_VENDOR)
     if(BLA_VENDOR MATCHES "Intel")
-        find_package(LAPACK REQUIRED)
-        find_package(BLAS REQUIRED)
+        find_package(LAPACK)
+        find_package(BLAS)
         if(BLAS_FOUND)
             set(MKL_INCLUDE_DIRS ${MKLROOT}/include)
             #FIND_PATH(MKL_INCLUDE_DIR "mkl_cblas.h" PATHS ${MKLROOT}/include)
@@ -135,6 +132,8 @@ if(DEFINED BLA_VENDOR)
             set(LINALG_LIBS ${LINALG_LIBS} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
             include_directories(SYSTEM ${MKL_INCLUDE_DIRS})
             set(USE_SPARSE_BLAS OFF)
+        else()
+            set(USE_DEFAULT_FIND_BLAS ON)
         endif()
     elseif(BLA_VENDOR MATCHES "OpenBLAS")   
         add_compile_definitions(USE_OPENBLAS)
@@ -178,8 +177,11 @@ endif()
 #if we aren't dealing with one of the vendors we treat specially then we will just go ahead and use the default
 #findBLAS and findLAPACK calls
 if(USE_DEFAULT_FIND_BLAS)
-    find_package(BLAS REQUIRED)
-    find_package(LAPACK REQUIRED)
+
+    #find_package(BLAS REQUIRED)
+    #find_package(LAPACK REQUIRED)
+    set(BLAS_LIBRARIES "-lblas")
+    set(LAPACK_LIBRARIES "-lblas")
     message(STATUS ${BLAS_LIBRARIES})
     set(LINALG_LIBS ${LINALG_LIBS} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
 endif()

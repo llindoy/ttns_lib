@@ -6,8 +6,6 @@
 #include "../bath_types/bath.hpp"
 #include "dscretisation_utilties.hpp"
 
-namespace eos
-{
 
 template <typename T>
 class abstract_discretisation
@@ -61,8 +59,6 @@ protected:
 
     abstract_discretisation(const rapidjson::Value& obj, std::string bname){CALL_AND_RETHROW(load(obj, bname));}
 };
-
-}
 
 #endif
 

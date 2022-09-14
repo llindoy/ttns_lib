@@ -2,14 +2,11 @@
 #define EOS_BROWNIAN_OSCILLATOR_BATH_HPP
 
 #include "bath.hpp"
-#include "../utils/factory.hpp"
 
-namespace eos
-{
 namespace bath
 {
 template <typename value_type>
-class brownian_oscillator : public abstract_bath<value_type>, public registered_in_factory<abstract_bath<value_type>, brownian_oscillator<value_type> >
+class brownian_oscillator : public abstract_bath<value_type>, public io::registered_in_factory<abstract_bath<value_type>, brownian_oscillator<value_type> >
 {
 public:
     using base_type = abstract_bath<value_type>;
@@ -19,7 +16,7 @@ public:
 public:
     brownian_oscillator() : base_type(), m_alpha(0), m_wc(0) {}
     brownian_oscillator(real_type alpha, real_type wc) : base_type(), m_alpha(alpha), m_wc(wc) {}
-    brownian_oscillator(const rapidjson::Value& obj) : base_type()
+    brownian_oscillator(const IOWRAPPER::input_object& obj) : base_type()
     {
         CALL_AND_HANDLE(load(obj), "Failed to construct brownian_oscillator spectral density object from rapidjson value.");
     }
@@ -28,7 +25,7 @@ public:
     std::shared_ptr<abstract_bath<value_type>> clone() const final{return std::make_shared<brownian_oscillator<value_type>>(*this);}
     
     void print() final{}
-    void load(const rapidjson::Value& obj) final;
+    void load(const IOWRAPPER::input_object& obj) final;
         
     //functions for computing the spectral density
 
@@ -84,25 +81,19 @@ REGISTER_TEMPLATE_TYPE_INFO_WITH_NAME(bath::brownian_oscillator, "brownian_oscil
 namespace bath
 {
 template <typename value_type> 
-void brownian_oscillator<value_type>::load(const rapidjson::Value& obj)
+void brownian_oscillator<value_type>::load(const IOWRAPPER::input_object& obj)
 {
     try
     {
-        CALL_AND_HANDLE(base_type::load(obj, type_info<brownian_oscillator<value_type> >::get_name()), "Failed to load base type variables.");
+        CALL_AND_HANDLE(base_type::load(obj, io::type_info<brownian_oscillator<value_type> >::get_name()), "Failed to load base type variables.");
 
-        ASSERT(obj.HasMember("gamma") , "Required parameters not present in rapidjson object.");
-        ASSERT(obj["gamma"].IsNumber(), "Required parameters are not correctly specified.");
-        m_gamma = obj["gamma"].GetDouble();
+        CALL_AND_HANDLE(IOWRAPPER::load<real_type>(obj, "gamma", m_gamma), "Failed to load reaction coordinate friction.");
         ASSERT(m_gamma >= 0, "Invalid cutoff frequency.");
 
-        ASSERT(obj.HasMember("omega") , "Required parameters not present in rapidjson object.");
-        ASSERT(obj["omega"].IsNumber(), "Required parameters are not correctly specified.");
-        m_Omega = obj["omega"].GetDouble();
+        CALL_AND_HANDLE(IOWRAPPER::load<real_type>(obj, "omega", m_Omega), "Failed to load reaction coordinate frequency.");
         ASSERT(m_Omega >= 0, "Invalid cutoff frequency.");
 
-        ASSERT(obj.HasMember("alpha") , "Required parameters not present in rapidjson object.");
-        ASSERT(obj["alpha"].IsNumber(), "Required parameters are not correctly specified.");
-        m_alpha = obj["alpha"].GetDouble();
+        CALL_AND_HANDLE(IOWRAPPER::load<real_type>(obj, "alpha", m_alpha), "Failed to load reaction coordinate frequency.");
         ASSERT(m_alpha >= 0, "Invalid cutoff frequency.");
     }
     catch(const std::exception& ex)
@@ -115,7 +106,6 @@ void brownian_oscillator<value_type>::load(const rapidjson::Value& obj)
 
 template class brownian_oscillator<double>;
 }
-}   //namespace eos
 
 #endif
 

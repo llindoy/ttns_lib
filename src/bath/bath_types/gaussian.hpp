@@ -2,15 +2,12 @@
 #define EOS_GAUSSIAN_CUTOFF_BATH_HPP
 
 #include "bath.hpp"
-#include "../utils/factory.hpp"
 
-namespace eos
-{
 namespace bath
 {
 template <typename value_type>
-class gaussian : public continuous_bath<value_type>, public registered_in_factory<abstract_bath<value_type>, gaussian<value_type> >, 
-                                                     public registered_in_factory<continuous_bath<value_type>, gaussian<value_type> >
+class gaussian : public continuous_bath<value_type>, public io::registered_in_factory<abstract_bath<value_type>, gaussian<value_type> >, 
+                                                     public io::registered_in_factory<continuous_bath<value_type>, gaussian<value_type> >
 
 {
 public:
@@ -22,7 +19,7 @@ public:
 public:
     gaussian() : base_type(), m_alpha(0), m_wc(0) {}
     gaussian(real_type alpha, real_type wc) : base_type(), m_alpha(alpha), m_wc(wc) {}
-    gaussian(const rapidjson::Value& obj) : base_type()
+    gaussian(const IOWRAPPER::input_object& obj) : base_type()
     {
         CALL_AND_HANDLE(load(obj), "Failed to construct debye spectral density object from rapidjson value.");
     }
@@ -32,7 +29,7 @@ public:
     std::shared_ptr<continuous_bath<value_type>> as_continuous() const final {return std::make_shared<gaussian<value_type>>(*this);}
     
     void print() final{}
-    void load(const rapidjson::Value& obj) final;
+    void load(const IOWRAPPER::input_object& obj) final;
         
     //functions for computing the spectral density
 
@@ -116,20 +113,16 @@ REGISTER_TEMPLATE_TYPE_INFO_WITH_NAME(bath::gaussian, "gaussian", "Generic bath 
 namespace bath
 {
 template <typename value_type> 
-void gaussian<value_type>::load(const rapidjson::Value& obj)
+void gaussian<value_type>::load(const IOWRAPPER::input_object& obj)
 {
     try
     {
-        CALL_AND_HANDLE(base_type::load(obj, type_info<gaussian<value_type> >::get_name()), "Failed to load base type variables.");
+        CALL_AND_HANDLE(base_type::load(obj, io::type_info<gaussian<value_type> >::get_name()), "Failed to load base type variables.");
 
-        ASSERT(obj.HasMember("wc") , "Required parameters not present in rapidjson object.");
-        ASSERT(obj["wc"].IsNumber(), "Required parameters are not correctly specified.");
-        m_wc = obj["wc"].GetDouble();
+        CALL_AND_HANDLE(IOWRAPPER::load<real_type>(obj, "wc", m_wc), "Failed to load in cutoff frequency.");
         ASSERT(m_wc >= 0, "Invalid cutoff frequency.");
 
-        ASSERT(obj.HasMember("alpha") , "Required parameters not present in rapidjson object.");
-        ASSERT(obj["alpha"].IsNumber(), "Required parameters are not correctly specified.");
-        m_alpha = obj["alpha"].GetDouble();
+        CALL_AND_HANDLE(IOWRAPPER::load<real_type>(obj, "alpha", m_alpha), "Failed to load in Kondo parameter.");
         ASSERT(m_alpha >= 0, "Invalid cutoff frequency.");
     }
     catch(const std::exception& ex)
@@ -142,7 +135,6 @@ void gaussian<value_type>::load(const rapidjson::Value& obj)
 
 template class gaussian<double>;
 }
-}   //namespace eos
 
 #endif
 

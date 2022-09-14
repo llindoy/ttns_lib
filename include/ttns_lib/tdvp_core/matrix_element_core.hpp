@@ -32,7 +32,7 @@ public:
         CALL_AND_RETHROW(r.resize(a.hrank(), a.hrank()));
     }
 
-    static inline void resize(const hdata& a, const hdata& b, mat& r, bool use_capacity = false)
+    static inline void resize(const hdata& a, const hdata& /* b */, mat& r, bool use_capacity = false)
     {
         if(use_capacity)
         {

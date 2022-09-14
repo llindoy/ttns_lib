@@ -3,17 +3,13 @@
 
 #include "bath.hpp"
 #include "discrete_bath.hpp"
-#include "../utils/orthopol.hpp"
-#include "../utils/factory.hpp"
-#include "../utils/io.hpp"
+#include <orthopol.hpp>
 
-namespace eos
-{
 namespace bath
 {
 
 template <typename value_type>
-class chain_mapped_bath : public abstract_bath<value_type>, public registered_in_factory<abstract_bath<value_type>, chain_mapped_bath<value_type> >
+class chain_mapped_bath : public abstract_bath<value_type>, public io::registered_in_factory<abstract_bath<value_type>, chain_mapped_bath<value_type> >
 {
 public:
     using base_type = abstract_bath<value_type>;
@@ -24,7 +20,7 @@ public:
     chain_mapped_bath() : base_type(), m_weights_constructed(false) {}
     chain_mapped_bath(size_t N) : base_type(), m_eps(N), m_t(N-1), m_weights_constructed(false) {}
     chain_mapped_bath(const linalg::vector<real_type>& eps, const real_type& kappa, const linalg::vector<real_type>& t) : base_type(), m_kappa(kappa), m_eps(eps), m_t(t), m_weights_constructed(false) {ASSERT(eps.size() == t.size()+1, "Failed to construct chain mapped bath.  Incorrect array sizes.");}
-    chain_mapped_bath(const rapidjson::Value& obj) : base_type()
+    chain_mapped_bath(const IOWRAPPER::input_object& obj) : base_type()
     {
         CALL_AND_HANDLE(load(obj), "Failed to construct debye spectral density object from rapidjson value.");
     }
@@ -35,7 +31,7 @@ public:
 
     void resize(size_t N){m_eps.resize(N); m_t.resize(N-1);}
     void print() final{}
-    void load(const rapidjson::Value& obj) final;
+    void load(const IOWRAPPER::input_object& obj) final;
         
     bool is_chain_mapped() const final{return true;}
 
@@ -123,24 +119,19 @@ REGISTER_TEMPLATE_TYPE_INFO_WITH_NAME(bath::chain_mapped_bath, "chain_mapped", "
 namespace bath
 {
 template <typename value_type> 
-void chain_mapped_bath<value_type>::load(const rapidjson::Value& obj)
+void chain_mapped_bath<value_type>::load(const IOWRAPPER::input_object& obj)
 {
     try
     {
-        using vec_loader = rapidjson_loader<linalg::vector<real_type> >;
-        CALL_AND_HANDLE(base_type::load(obj, type_info<chain_mapped_bath<value_type> >::get_name()), "Failed to load base type variables.");
+        CALL_AND_HANDLE(base_type::load(obj, io::type_info<chain_mapped_bath<value_type> >::get_name()), "Failed to load base type variables.");
 
-        if(obj.HasMember("eps") && obj.HasMember("t") && obj.HasMember("kappa"))
+        if(IOWRAPPER::has_member(obj, "eps") && IOWRAPPER::has_member(obj, "t") && IOWRAPPER::has_member(obj, "kappa"))
         {
             linalg::vector<real_type> eps;
             linalg::vector<real_type> t;
-            
-            CALL_AND_HANDLE(vec_loader::load(obj["eps"], eps), "Failed to load in site energy array from rapidjson object.");
-
-            CALL_AND_HANDLE(rapidjson_loader<real_type>::load(obj["kappa"], m_kappa), "Failed to read in system bath coupling constant.");
-            //check if g is a vector or vector of vectors
-
-            CALL_AND_HANDLE(vec_loader::load(obj["t"], t), "Failed to load bath-bath coupling constant array from rapidjson object.");
+            CALL_AND_HANDLE(IOWRAPPER::load<decltype(eps)>(obj, "eps", ps), "Failed to load in site energy array from rapidjson object.");
+            CALL_AND_HANDLE(IOWRAPPER::load<decltype(t)>(obj, "t", t), "Failed to load bath-bath coupling constant array from rapidjson object.");
+            CALL_AND_HANDLE(IOWRAPPER::load<decltype(m_kappa)>(obj, "kappa", m_kappa), "Failed to read in system bath coupling constant.");
 
             ASSERT(eps.size() == t.size()+1, "Invalid spectral_density parameters, the number of coupling constants and frequencies are inconsistent.");
             
@@ -155,12 +146,9 @@ void chain_mapped_bath<value_type>::load(const rapidjson::Value& obj)
         }
         else if(obj.HasMember("continuous") && obj.HasMember("discretisation"))
         {
-            //ASSERT(obj["continuous"].IsObject() && obj["discretisation"].IsObject(), "Invalid inputs for chain_mapped bath object.");
-            //std::shared_ptr<abstract_bath<real_type>> cont = factory<abstract_bath<real_type>>::create(doc["continuous"]);
         }
         else if(obj.HasMember("discrete"))
         {
-            //std::shared_ptr<chain_bath<real_type>> chain(doc["chain"]);
         }
     }
     catch(const std::exception& ex)
@@ -174,7 +162,6 @@ void chain_mapped_bath<value_type>::load(const rapidjson::Value& obj)
 template class chain_mapped_bath<double>;
 
 }
-}   //namespace eos
 
 #endif
 

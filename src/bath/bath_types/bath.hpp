@@ -4,15 +4,13 @@
 #include <limits>
 #include <memory>
 #include <linalg/linalg.hpp>
-#include "../utils/io.hpp"
-#include "../utils/common.hpp"
-#include "../utils/factory.hpp"
-#include "../utils/quadrature/adaptive_integrate.hpp"
 
+#include <io/input_wrapper.hpp>
+#include <io/factory.hpp>
+
+#include <quadrature/adaptive_integrate.hpp>
 #include "../transformations/discretisation_utilities.hpp"
 
-namespace eos
-{
 namespace bath
 {
 
@@ -39,7 +37,7 @@ public:
     virtual std::shared_ptr<abstract_bath<value_type>> clone() const = 0;
     
     virtual void print() = 0;
-    virtual void load(const rapidjson::Value& obj) = 0;
+    virtual void load(const IOWRAPPER::input_object& obj) = 0;
     
     /*
      *  Functions for evaluating the spectral density
@@ -268,29 +266,27 @@ public:
     }
     
 protected:
-    void load(const rapidjson::Value& obj, std::string bname)
+    void load(const IOWRAPPER::input_object& obj, std::string bname)
     {
         try
         {
-            ASSERT(obj.IsObject(), "Invalid rapidjson object.");
-            ASSERT(obj.HasMember("type"), "Object does not specify a spectral_density type.");
-            ASSERT(obj["type"].IsString(), "The spectral density type is not a string");
-            std::string s(obj["type"].GetString());
-            remove_whitespace_and_to_lower(s);
-            remove_whitespace_and_to_lower(bname);
+            ASSERT(IOWRAPPER::is_object(obj), "Invalid rapidjson object.");
+            std::string s;
+            CALL_AND_HANDLE(IOWRAPPER::load<std::string>(obj, "type", s), "Failed to read in spectral density type.");
+            io::remove_whitespace_and_to_lower(s);
+            io::remove_whitespace_and_to_lower(bname);
+
             ASSERT(s == bname, "The input spectral density type differs from the type that is being created.");
-            if(obj.HasMember("beta"))
+            
+            bool has_beta = false;
+            CALL_AND_HANDLE(has_beta = IOWRAPPER::load_optional<real_type>(obj, "beta", m_beta), "Failed when attempting to read in beta.");
+
+            if(!has_beta)
             {
-                ASSERT(!obj.HasMember("t"), "Cannot specify both a temperature and inverse temperature.");
-                ASSERT(obj["beta"].IsNumber(), "Bath Temperature Info Found but is invalid.");
-                m_beta = obj["beta"].GetDouble();
-                ASSERT(m_beta >= 0, "Invalid inverse temperature.");
-                m_nonzero_temperature = true;
-            }
-            else if(obj.HasMember("t"))
-            {
-                ASSERT(obj["t"].IsNumber(), "Bath Temperature Info Found but is invalid.");
-                real_type T = obj["t"].GetDouble();
+                real_type T;
+                CALL_AND_HANDLE(has_beta = IOWRAPPER::load_optional<real_type>(obj, "t", T), "Failed when attempting to read in temperature.");
+                CALL_AND_HANDLE(obj["t"].IsNumber(), "Bath Temperature Info Found but is invalid.");
+
                 ASSERT(T >= 0, "Invalid temperature.");
                 if(std::abs(T) > 1e-14)
                 {
@@ -302,7 +298,8 @@ protected:
                     m_nonzero_temperature = false;
                 }
             }
-            else
+            
+            if(!has_beta)
             {
                 m_nonzero_temperature = false;
             }
@@ -313,7 +310,7 @@ protected:
             RAISE_EXCEPTION("Failed to load abstract_bath object from file.");
         }
     }
-    abstract_bath(const rapidjson::Value& obj, std::string bname){CALL_AND_RETHROW(load(obj, bname));}
+    abstract_bath(const IOWRAPPER::input_object& obj, std::string bname){CALL_AND_RETHROW(load(obj, bname));}
 
     size_t nterms() const{return m_nterms;}
 protected:
@@ -372,6 +369,8 @@ public:
     using fourier_integ_type = typename base_type::fourier_integ_type;
     using gauss_integ_type = typename base_type::gauss_integ_type;
 public:
+    static std::string key() {return std::string("type");}
+    
     continuous_bath() : base_type() {}
     continuous_bath(size_t nterms) : base_type(nterms){}
     continuous_bath(const continuous_bath& o) = default;
@@ -395,7 +394,6 @@ public:
 };
 
 }
-}   //namespace eos
 
 #endif
 

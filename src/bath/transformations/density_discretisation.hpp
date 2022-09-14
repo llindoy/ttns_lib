@@ -6,8 +6,6 @@
 #include <quadrature/gaussian_quadrature/gauss_legendre_quadrature.hpp>
 
 
-namespace eos
-{
 
 template <typename T>
 class density_discretisation //: public abstract_discretisation<T>, public registered_in_factory<abstract_discretisation<T>, density_discretisation<T> >
@@ -48,7 +46,5 @@ protected:
 
     
 };
-
-}
 
 #endif

@@ -3,16 +3,12 @@
 
 #include "bath.hpp"
 #include "chain_bath.hpp"
-#include "../utils/factory.hpp"
-#include "../utils/io.hpp"
 
-namespace eos
-{
 namespace bath
 {
 
 template <typename value_type>
-class discrete_bath : public abstract_bath<value_type>, public registered_in_factory<abstract_bath<value_type>, discrete_bath<value_type> >
+class discrete_bath : public abstract_bath<value_type>, public io::registered_in_factory<abstract_bath<value_type>, discrete_bath<value_type> >
 {
 public:
     using base_type = abstract_bath<value_type>;
@@ -26,7 +22,7 @@ public:
         for(size_t i = 0; i < m_g.size(); ++i){m_g(i).resize(nterms);}
     }
     discrete_bath(const linalg::vector<real_type>& w, const linalg::vector<linalg::vector<real_type>>& g) : base_type(), m_w(w), m_g(g), m_jeps(1e-6) {}
-    discrete_bath(const rapidjson::Value& obj) : base_type(), m_jeps(1e-6)
+    discrete_bath(const IOWRAPPER::input_object& obj) : base_type(), m_jeps(1e-6)
     {
         CALL_AND_HANDLE(load(obj), "Failed to construct debye spectral density object from rapidjson value.");
     }
@@ -37,7 +33,7 @@ public:
 
     void resize(size_t N){m_w.resize(N); m_g.resize(N);}
     void print() final{}
-    void load(const rapidjson::Value& obj) final;
+    void load(const IOWRAPPER::input_object& obj) final;
         
     bool is_discrete() const final{return true;}
 
@@ -152,25 +148,21 @@ REGISTER_TEMPLATE_TYPE_INFO_WITH_NAME(bath::discrete_bath, "discrete", "The spec
 namespace bath
 {
 template <typename value_type> 
-void discrete_bath<value_type>::load(const rapidjson::Value& obj)
+void discrete_bath<value_type>::load(const IOWRAPPER::input_object& obj)
 {
     try
     {
-        using vec_loader = rapidjson_loader<linalg::vector<real_type> >;
-        using gvec_loader = rapidjson_loader<linalg::vector<linalg::vector<real_type> > >;
-        CALL_AND_HANDLE(base_type::load(obj, type_info<discrete_bath<value_type> >::get_name()), "Failed to load base type variables.");
+        CALL_AND_HANDLE(base_type::load(obj, io::type_info<discrete_bath<value_type> >::get_name()), "Failed to load base type variables.");
 
         //need to figure out how to best handle finite temperature cases here.
-        if(obj.HasMember("w") && obj.HasMember("g"))
+        if(IOWRAPPER::has_member(obj, "w") && IOWRAPPER::has_member(obj, "g"))
         {
             linalg::vector<real_type> w;
             linalg::vector<linalg::vector<real_type>> g;
-            
-            CALL_AND_HANDLE(vec_loader::load(obj["w"], w), "Failed to load frequency array from rapidjson object.");
 
-            //check if g is a vector or vector of vectors
+            CALL_AND_HANDLE(IOWRAPPER::load<decltype(w)>(obj, "w", w), "Failed to load frequency array from rapidjson object.");
+            CALL_AND_HANDLE(IOWRAPPER::load<decltype(g)>(obj, "g", g), "Failed to load coupling constants array from rapidjson object.");
 
-            CALL_AND_HANDLE(gvec_loader::load(obj["g"], g), "Failed to load coupling constants array from rapidjson object.");
             ASSERT(w.size() == g.size(), "Invalid spectral_density parameters, the number of coupling constants and frequencies are inconsistent.");
             
             m_w = w;
@@ -186,18 +178,13 @@ void discrete_bath<value_type>::load(const rapidjson::Value& obj)
             m_g.resize(g.size());
             for(size_t i = 0; i < g.size(); ++i){m_g(i) = g(i);}
         
-            //check if the coupling constants already contain thermal contributions.  If they do then we ignore the 
-            if(obj.HasMember("containsthermal"))
-            {
-                ASSERT(obj["containsthermal"].IsBool(), "Invalid spectral density parameters.")
-                if(obj["containsthermal"].GetBool()){base_type::m_nonzero_temperature = false;}
-            }
+            CALL_AND_HANDLE(IOWRAPPER::load_optional<bool>(obj, "containsthermal", base_type::m_nonzero_temperature), "Failed to read in whether or not the discrete bath represents a thermofield mapped bath.");
         }
-        else if(obj.HasMember("discretisation") && obj.HasMember("continuous"))
+        else if(IOWRAPPER::has_member(obj, "discretisation") && IOWRAPPER::has_member(obj, "continuous"))
         {
             try
             {
-                ASSERT(obj["continuous"].IsObject() && obj["discretisation"].IsObject(), "Invalid inputs for discrete bath object.");
+                //ASSERT(obj["continuous"].IsObject() && obj["discretisation"].IsObject(), "Invalid inputs for discrete bath object.");
 
                 //load the continuous spectral density
                 std::shared_ptr<continuous_bath<real_type>> cont = factory<continuous_bath<real_type>>::create(obj["continuous"]);
@@ -213,7 +200,7 @@ void discrete_bath<value_type>::load(const rapidjson::Value& obj)
                 RAISE_EXCEPTION("Failed to load discrete bath from continuous bath object.");
             }
         }
-        else if(obj.HasMember("chain_mapped"))
+        else if(IOWRAPPER::has_member(obj, "chain_mapped"))
         {
             try
             {
@@ -237,13 +224,7 @@ void discrete_bath<value_type>::load(const rapidjson::Value& obj)
             base_type::m_nterms = 1;
         }
 
-        if(obj.HasMember("linewidth"))
-        {
-            if(obj["linewidth"].IsNumber())
-            {
-                m_jeps = obj["linewidth"].GetDouble();
-            }
-        }
+        CALL_AND_HANDLE(IOWRAPPER::load_optional<real_type>(obj, "linewidth", m_jeps), "Failed to read in linewidth broadening.");
     }
     catch(const std::exception& ex)
     {
@@ -256,7 +237,6 @@ void discrete_bath<value_type>::load(const rapidjson::Value& obj)
 template class discrete_bath<double>;
 
 }
-}   //namespace eos
 
 #endif
 

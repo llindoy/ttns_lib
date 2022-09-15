@@ -521,5 +521,5 @@ common mf indices initialised
 spf initialised
 mf initialised
 Command terminated by signal 2
-251.54user 1.76system 4:18.82elapsed 97%CPU (0avgtext+0avgdata 276544maxresident)k
-214896inputs+344outputs (4939major+80462minor)pagefaults 0swaps
+59.73user 0.87system 1:04.78elapsed 93%CPU (0avgtext+0avgdata 276372maxresident)k
+141912inputs+200outputs (4783major+79091minor)pagefaults 0swaps

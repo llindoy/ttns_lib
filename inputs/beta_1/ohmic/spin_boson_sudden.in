@@ -19,14 +19,14 @@
     "jacobi beta" : 0.5,
 
     "tmax" : 5.0,
-    "dt" : 1e-3,
+    "dt" : 5e-3,
 
     "nspf" : 8,
     "nspf lower" : 4,
     "nspf capacity" : 192,
     "nspf lower capacity" : 48,
 
-    "nmodes" : 1024,
+    "nmodes" : 512,
 
     "print bond dimension" : true,
 
@@ -38,8 +38,8 @@
     "krylov tolerance" : 1e-12,
     "krylov dimension" : 12,
 
-    "spawning parameter" : 1e-12,
-    "unoccupied threshold" : 1e-6,
+    "spawning parameter" : 1e-8,
+    "unoccupied threshold" : 1e-4,
     "minimum unoccupied" : 2,
 
     "seed" : 0,

@@ -34,7 +34,7 @@ def call_proc(cmd, ijson, id):
         os.remove(fname)
     return (out, err)
 
-pool = ThreadPool(16)
+pool = ThreadPool(4)
 results = []
 
 

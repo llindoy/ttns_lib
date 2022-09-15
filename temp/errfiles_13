@@ -1028,6 +1028,10 @@ tree topology constructed
 
 htucker tensor built
 sum of product operator initialised.
-Command terminated by signal 9
-35.46user 5.33system 0:44.74elapsed 91%CPU (0avgtext+0avgdata 5045256maxresident)k
-11656inputs+240outputs (576major+1467234minor)pagefaults 0swaps
+common spf indices initialised
+common mf indices initialised
+spf initialised
+mf initialised
+Command terminated by signal 2
+55.99user 6.24system 1:05.16elapsed 95%CPU (0avgtext+0avgdata 7792760maxresident)k
+26720inputs+392outputs (1089major+2326681minor)pagefaults 0swaps

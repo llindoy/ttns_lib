@@ -100,7 +100,7 @@ protected:
 }
 
 
-REGISTER_TEMPLATE_TYPE_INFO_WITH_NAME(bath::debye, "debye", "Debye spectral density: J(\\omega) = \\alpha\\omega_c^2 \\frac{\\omega}{\\omega^2 + \\omega_c^2}", "wc: The cutoff frequency. \nalpha: The Kondo Parameter. \nbeta[T]: (O) The inverse temperature/temperature  of the bath")
+REGISTER_TEMPLATE_TYPE_INFO_WITH_NAME(bath::debye, "debye", "Debye spectral density: J(\\omega) = \\alpha\\omega_c^2 \\frac{\\omega}{\\omega^2 + \\omega_c^2} or equivalently J(\\omega) = 2\\lambda\\omega_c \\frac{\\omega}{\\omega^2 + \\omega_c^2}", "wc: The cutoff frequency. \nalpha/lambda: The Kondo Parameter/bath reorganisation energy. \nbeta[T]: (O) The inverse temperature/temperature  of the bath")
 
 namespace bath
 {
@@ -114,8 +114,20 @@ void debye<value_type>::load(const IOWRAPPER::input_object& obj)
         CALL_AND_HANDLE(IOWRAPPER::load<real_type>(obj, "wc", m_wc), "Failed to load in cutoff frequency.");
         ASSERT(m_wc >= 0, "Invalid cutoff frequency.");
 
-        CALL_AND_HANDLE(IOWRAPPER::load<real_type>(obj, "alpha", m_alpha), "Failed to load in bath friction.");
+        bool loaded_alpha = false;
+        CALL_AND_HANDLE(loaded_alpha = IOWRAPPER::load_optional<real_type>(obj, "alpha", m_alpha), "Failed to load in bath friction.");
+        if(!loaded_alpha)
+        {
+            real_type lambda;
+            bool loaded_lambda;
+            CALL_AND_HANDLE(loaded_lambda = IOWRAPPER::load_optional<real_type>(obj, "lambda", lambda), "Failed to load in bath friction.");
+            ASSERT(loaded_lambda, "Failed to read in the bath coupling strength.");
+
+            m_alpha = real_type(2)*lambda/m_wc;
+        }
         ASSERT(m_alpha >= 0, "Invalid cutoff frequency.");
+
+        
     }
     catch(const std::exception& ex)
     {

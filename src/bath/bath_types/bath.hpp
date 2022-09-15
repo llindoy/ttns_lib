@@ -281,21 +281,26 @@ protected:
             bool has_beta = false;
             CALL_AND_HANDLE(has_beta = IOWRAPPER::load_optional<real_type>(obj, "beta", m_beta), "Failed when attempting to read in beta.");
 
-            if(!has_beta)
+            if(has_beta)
+            {
+                m_nonzero_temperature = true;
+            }
+            else
             {
                 real_type T;
                 CALL_AND_HANDLE(has_beta = IOWRAPPER::load_optional<real_type>(obj, "t", T), "Failed when attempting to read in temperature.");
-                CALL_AND_HANDLE(obj["t"].IsNumber(), "Bath Temperature Info Found but is invalid.");
-
-                ASSERT(T >= 0, "Invalid temperature.");
-                if(std::abs(T) > 1e-14)
+                if(has_beta)
                 {
-                    m_nonzero_temperature = true;
-                    m_beta = 1.0/T;
-                }
-                else
-                {
-                    m_nonzero_temperature = false;
+                    ASSERT(T >= 0, "Invalid temperature.");
+                    if(std::abs(T) > 1e-14)
+                    {
+                        m_nonzero_temperature = true;
+                        m_beta = 1.0/T;
+                    }
+                    else
+                    {
+                        m_nonzero_temperature = false;
+                    }
                 }
             }
             

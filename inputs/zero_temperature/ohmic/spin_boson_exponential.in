@@ -14,7 +14,7 @@
     "max frequency cutoff" : 500,
 
     "tmax" : 5.0,
-    "dt" : 1e-3,
+    "dt" : 5e-3,
 
     "nspf" : 4,
     "nspf lower" : 4,
@@ -31,18 +31,16 @@
     "krylov tolerance" : 1e-12,
     "krylov dimension" : 12,
 
-    "spawning parameter" : 1e-10,
-    "unoccupied threshold" : 1e-5,
+    "spawning parameter" : 1e-8,
+    "unoccupied threshold" : 1e-4,
     "minimum unoccupied" : 2,
 
     "seed" : 0,
-
     "ops" : [
         [[0, 1], [1, 0]],
         [[0, "-1.0j"], ["1.0j", 0]],
         [[1, 0], [0, -1]],
         [[1, 0], [0, 1]]
     ],
-
     "output file" : "sb_exp_512.out"
 }
